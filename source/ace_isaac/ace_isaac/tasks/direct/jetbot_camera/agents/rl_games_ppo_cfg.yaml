@@ -78,7 +78,7 @@ params:
     learning_rate: 1e-4
     lr_schedule: adaptive
     kl_threshold: 0.008
-    score_to_win: 200000
+    score_to_win: 20000
     max_epochs: 500
     save_best_after: 50
     save_frequency: 25
@@ -87,7 +87,7 @@ params:
     truncate_grads: True
     e_clip: 0.2
     horizon_length: 64
-    minibatch_size: 1
+    minibatch_size: 72
     mini_epochs: 4
     critic_coef: 2
     clip_value: True

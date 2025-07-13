@@ -24,93 +24,76 @@ class JetbotCameraEnv(DirectRLEnv):
         super().__init__(cfg, render_mode, **kwargs)
 
         self.action_scale = self.cfg.action_scale
-        self.robot        = self.scene["jetbot"]
-        self.robot_camera = self.scene["camera"]
-        self.goal_marker  = self.scene["goal_marker"]
+
         self.dof_idx, _ = self.robot.find_joints(self.cfg.dof_names)
         print(self.dof_idx)
 
-    def _set_goal_position(self):
-        print("SET GOAL FUNCTION WAS CALLED")
-        robot_orientation = self.robot.data.root_quat_w
-        marker = self.scene["goal_marker"]
-        # forward_vector = get_basis_vector_z(robot_orientation)
-        positions, orientations = marker.get_world_poses()
-        positions[:, 2] += 1.5
-        marker.set_world_poses(positions, orientations) 
-        forward_distance = 1
-        # point_in_front = self.robot.data.root_pow_w + forward_distance * forward_vector
-        return
+        self.prev_dist = torch.linalg.norm(self.robot.data.root_pos_w - self.goal_marker.data.root_pos_w, dim=-1)
 
-    def _configure_gym_env_spaces(self):
-        self.num_actions = self.cfg.num_actions
-        self.num_observations = self.cfg.num_observations
+    def _setup_scene(self):
 
-        self.single_observation_space = gym.spaces.Dict()
-        self.single_observation_space["policy"] = gym.spaces.Box(
-            low=-np.inf,
-            high=np.inf,
-            shape=(self.cfg.scene.camera.height, self.cfg.scene.camera.width, self.cfg.num_channels),
-        )
-        self.single_action_space = gym.spaces.Box(low=-1, high=1, shape=(self.num_actions,))
+        self.robot        = self.scene["jetbot"]
+        self.robot_camera = self.scene["camera"]
+        self.goal_marker  = self.scene["goal_marker"]
 
-        # batch the spaces for vectorized environments
-        self.observation_space = gym.vector.utils.batch_space(self.single_observation_space, self.num_envs)
-        self.action_space = gym.vector.utils.batch_space(self.single_action_space, self.num_envs)
-
-        # RL specifics
-        self.actions = torch.zeros(self.num_envs, self.num_actions, device=self.sim.device)
-
+        # add ground plane
+        spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg())
+        # clone and replicate
+        self.scene.clone_environments(copy_from_source=False)
+        # add articulation to scene
+        self.scene.articulations["robot"] = self.robot
+        # add lights
+        light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
+        light_cfg.func("/World/Light", light_cfg)
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
         self.actions = self.action_scale*actions.clone()
 
     def _apply_action(self) -> None:
-        self.robot.set_joint_velocity_target(self.actions)
+        self.robot.set_joint_velocity_target(self.actions, joint_ids=self.dof_idx)
 
     def _get_observations(self) -> dict:
-        observations =  self.robot_camera.data.output["rgb"].clone()
-        # get rid of the alpha channel
-        observations = observations[:, :, :, :3]
-        return {"policy": observations}
-    
-    # def _get_rewards(self) -> torch.Tensor:
-    #     robot_position = self.robot.data.root_pos_w
-    #     goal_position = self.goal_marker.data.root_pos_w
-    #     squared_diffs = (robot_position - goal_position) ** 2
-    #     distance_to_goal = torch.sqrt(torch.sum(squared_diffs, dim=-1))
-    #     rewards = torch.exp(1/(distance_to_goal))
-    #     #rewards -= 4
 
-    #     if (self.common_step_counter % 10 == 0):
-    #         print(f"Reward at step {self.common_step_counter} is {rewards} for distance {distance_to_goal}")
-    #     return rewards
+        camera_data = self.robot_camera.data.output["rgb"] / 255.0
+        # normalize the camera data for better training results
+        mean_tensor = torch.mean(camera_data, dim=(1, 2), keepdim=True)
+        camera_data -= mean_tensor
 
+        return {"policy": camera_data.clone()}
 
-    def _get_rewards(self) -> torch.Tensor:
-        # existing distance‐based reward
-        robot_position = self.robot.data.root_pos_w
-        goal_position  = self.goal_marker.data.root_pos_w
-        squared_diffs  = (robot_position - goal_position) ** 2
-        distance_to_goal = torch.sqrt(torch.sum(squared_diffs, dim=-1))
-        rewards = torch.exp(1.0 / (distance_to_goal + 1e-6))
- 
-        # --- encourage any forward/backward motion ---
-        # root_com_lin_vel_w: (N,3) world‐frame COM velocity
-        lin_vel = self.robot.data.root_com_lin_vel_w            # shape [num_envs,3]
-        speed   = torch.linalg.norm(lin_vel, dim=-1)           # shape [num_envs]
-        move_bonus = 0.05 * speed                               # tune 0.05
-        rewards    = rewards + move_bonus
+    def _get_rewards(self):
+        
+        # current root world pos & goal
+        root_pos = self.robot.data.root_pos_w                # (N,3)
+        goal_vec = self.goal_marker.data.root_pos_w - root_pos          # (N,3)
 
-        # --- penalize yaw spinning in place ---
-        # root_com_ang_vel_w[...,2]: yaw rate around vertical axis
-        # ang_vel     = self.robot.data.root_com_ang_vel_w[..., 2]  # shape [num_envs]
-        # spin_penalty= 0.1 * torch.abs(ang_vel)                   # tune 0.1
-        # rewards     = rewards - spin_penalty
- 
+        # distance to goal
+        dist = torch.linalg.norm(goal_vec, dim=-1, keepdim=True)  # (N,1)
+
+        # unit direction toward goal (avoid div by zero)
+        dir_to_goal = goal_vec / (dist + 1e-6)
+
+        # get COM velocity in world frame
+        vel_w = self.robot.data.root_com_lin_vel_w         # (N,3)
+
+        # 1) progress: projection of velocity onto goal direction
+        progress = torch.sum(vel_w * dir_to_goal, dim=-1, keepdim=True)
+
+        # 2) distance penalty (scaled negative)
+        dist_penalty = -0.2 * dist
+
+        # 3) sparse “arrival” bonus
+        arrived = (dist < 0.2).to(torch.float32) * 2.0      # +2 when within 0.2 m
+
+        # combine
+        total_reward = progress + dist_penalty + arrived
+        total_reward = total_reward.flatten()
+
         if (self.common_step_counter % 10 == 0):
-            print(f"Reward at step {self.common_step_counter} is {rewards} for distance {distance_to_goal}")
-        return rewards
+            #print(f"Velocity Contribution is {progress}")
+            print(f"Reward at step {self.common_step_counter} is {total_reward} with shape {total_reward.shape}")
+
+        return total_reward
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
         time_out = self.episode_length_buf >= self.max_episode_length - 1
@@ -124,13 +107,11 @@ class JetbotCameraEnv(DirectRLEnv):
 
         default_goal_root_state = self.goal_marker.data.default_root_state[env_ids]
         default_goal_root_state[:, :3] += self.scene.env_origins[env_ids]
-        self.goal_marker.write_root_pose_to_sim(default_goal_root_state[:, :7], env_ids)
+        self.goal_marker.write_root_state_to_sim(default_goal_root_state, env_ids)
 
-        joint_pos = self.robot.data.default_joint_pos[env_ids]
-        joint_vel = self.robot.data.default_joint_vel[env_ids]
+        # set the root state for the reset envs
         default_root_state = self.robot.data.default_root_state[env_ids]
         default_root_state[:, :3] += self.scene.env_origins[env_ids]
-        
-        self.robot.write_root_pose_to_sim(default_root_state[:, :7], env_ids)
-        self.robot.write_root_velocity_to_sim(default_root_state[:, 7:], env_ids)
-        self.robot.write_joint_state_to_sim(joint_pos, joint_vel, None, env_ids)
+        self.robot.write_root_state_to_sim(default_root_state, env_ids)
+
+        self.prev_dist = torch.linalg.norm(self.robot.data.root_pos_w - self.goal_marker.data.root_pos_w, dim=-1)

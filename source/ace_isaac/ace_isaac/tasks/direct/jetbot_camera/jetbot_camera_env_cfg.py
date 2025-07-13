@@ -14,7 +14,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 @configclass
 class JetbotSceneCfg(InteractiveSceneCfg):
 
-    room_cfg = AssetBaseCfg(prim_path="{ENV_REGEX_NS}/room", spawn=sim_utils.UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Environments/Simple_Room/simple_room.usd"))
+    #room_cfg = AssetBaseCfg(prim_path="{ENV_REGEX_NS}/room", spawn=sim_utils.UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Environments/Simple_Room/simple_room.usd"))
     
     jetbot: ArticulationCfg = JETBOT_CONFIG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
@@ -38,19 +38,21 @@ class JetbotCameraEnvCfg(DirectRLEnvCfg):
     decimation = 2
     episode_length_s = 5.0
 
-    num_actions = 2
     action_scale = 100.0
     state_space = 0
 
     # scene
-    scene: InteractiveSceneCfg = JetbotSceneCfg(num_envs=1, env_spacing=15.0, replicate_physics=True)
+    scene: InteractiveSceneCfg = JetbotSceneCfg(num_envs=18, env_spacing=20.0, replicate_physics=True)
     dof_names = ["left_wheel_joint", "right_wheel_joint"]
 
     num_channels = 3
-    num_observations = num_channels * scene.camera.height * scene.camera.width
+    # num_observations = num_channels * scene.camera.height * scene.camera.width
 
     action_space = 2
-    observation_space = num_channels * scene.camera.height * scene.camera.width
+    state_space = 0
+    observation_space = [scene.camera.height, scene.camera.width, 3]
+    #num_channels * scene.camera.height * scene.camera.width
+    # [tiled_camera.height, tiled_camera.width, 3]
 
     # simulation
     sim: SimulationCfg = SimulationCfg(dt=1 / 120, render_interval=decimation)
