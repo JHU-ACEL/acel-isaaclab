@@ -29,7 +29,7 @@ class JetbotSceneCfg(InteractiveSceneCfg):
 
     goal_marker = RigidObjectCfg(prim_path="{ENV_REGEX_NS}/marker", 
                                  spawn=sim_utils.UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/red_block.usd"), 
-                                 init_state=RigidObjectCfg.InitialStateCfg(pos=(.6,.3,0)))
+                                 init_state=RigidObjectCfg.InitialStateCfg(pos=(.75,0.4,0)))
 
 
 @configclass
@@ -42,7 +42,7 @@ class JetbotCameraEnvCfg(DirectRLEnvCfg):
     state_space = 0
 
     # scene
-    scene: InteractiveSceneCfg = JetbotSceneCfg(num_envs=18, env_spacing=20.0, replicate_physics=True)
+    scene: InteractiveSceneCfg = JetbotSceneCfg(num_envs=15, env_spacing=20.0, replicate_physics=True)
     dof_names = ["left_wheel_joint", "right_wheel_joint"]
 
     num_channels = 3
