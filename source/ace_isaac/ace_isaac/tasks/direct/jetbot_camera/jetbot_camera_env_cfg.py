@@ -4,7 +4,7 @@ import isaaclab.sim as sim_utils
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import DirectRLEnvCfg
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.sensors import CameraCfg
+from isaaclab.sensors import CameraCfg, TiledCameraCfg
 from isaaclab.sim import SimulationCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
@@ -13,9 +13,10 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 @configclass
 class JetbotSceneCfg(InteractiveSceneCfg):
+
     room_cfg = AssetBaseCfg(prim_path="{ENV_REGEX_NS}/room", spawn=sim_utils.UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Environments/Simple_Room/simple_room.usd"))
     
-    jetbot: ArticulationCfg = JETBOT_CONFIG.replace(prim_path="{ENV_REGEX_NS}/Robot", init_state=ArticulationCfg.InitialStateCfg(pos=(-.6,0,0)))
+    jetbot: ArticulationCfg = JETBOT_CONFIG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
     camera = CameraCfg(
         data_types=["rgb"],
@@ -28,7 +29,7 @@ class JetbotSceneCfg(InteractiveSceneCfg):
 
     goal_marker = RigidObjectCfg(prim_path="{ENV_REGEX_NS}/marker", 
                                  spawn=sim_utils.UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/red_block.usd"), 
-                                 init_state=RigidObjectCfg.InitialStateCfg(pos=(.3,0,0)))
+                                 init_state=RigidObjectCfg.InitialStateCfg(pos=(.6,.3,0)))
 
 
 @configclass
@@ -36,8 +37,8 @@ class JetbotCameraEnvCfg(DirectRLEnvCfg):
     # env
     decimation = 2
     episode_length_s = 5.0
-    # - spaces definition
-    action_space = 2
+
+    num_actions = 2
     action_scale = 100.0
     state_space = 0
 
@@ -45,7 +46,11 @@ class JetbotCameraEnvCfg(DirectRLEnvCfg):
     scene: InteractiveSceneCfg = JetbotSceneCfg(num_envs=1, env_spacing=15.0, replicate_physics=True)
     dof_names = ["left_wheel_joint", "right_wheel_joint"]
 
-    observation_space = [scene.camera.height, scene.camera.width, 3]
+    num_channels = 3
+    num_observations = num_channels * scene.camera.height * scene.camera.width
+
+    action_space = 2
+    observation_space = num_channels * scene.camera.height * scene.camera.width
 
     # simulation
     sim: SimulationCfg = SimulationCfg(dt=1 / 120, render_interval=decimation)
