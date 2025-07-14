@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from isaac_lab_tutorial.robots.jetbot import JETBOT_CONFIG
+from ace_isaac.robots.jetbot import JETBOT_CONFIG
 
 from isaaclab.assets import ArticulationCfg, RigidObjectCfg
 from isaaclab.envs import DirectRLEnvCfg
