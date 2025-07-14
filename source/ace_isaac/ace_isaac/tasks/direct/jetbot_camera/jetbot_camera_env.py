@@ -85,6 +85,10 @@ class JetbotCameraEnv(DirectRLEnv):
         self.marker_offset[:,-1] = 0.5
         self.forward_marker_orientations = torch.zeros((self.cfg.scene.num_envs, 4)).cuda()
         self.command_marker_orientations = torch.zeros((self.cfg.scene.num_envs, 4)).cuda()
+
+        self.radius_l = 0.5
+        self.radius_h = 1.0
+        self.dirs = torch.zeros((self.cfg.scene.num_envs, 3)).cuda()
         
 
     def _visualize_markers(self):
@@ -118,7 +122,7 @@ class JetbotCameraEnv(DirectRLEnv):
         self.visualization_markers.visualize(loc, rots, marker_indices=indices)
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
-        self.actions = 25*actions.clone()# + torch.ones_like(actions)
+        self.actions = 10*actions.clone()# + torch.ones_like(actions)
         self._visualize_markers()
 
     def _apply_action(self) -> None:
@@ -143,15 +147,14 @@ class JetbotCameraEnv(DirectRLEnv):
         # total_reward = forward_reward*alignment_reward + forward_reward
         # total_reward = forward_reward*torch.exp(alignment_reward)
 
-        # current root world pos & goal
+        # arrival bonus and distance penalty
         root_pos = self.robot.data.root_pos_w                # (N,3)
         goal_vec = self.goal_marker.data.root_pos_w - root_pos          # (N,3)
-
-        # arrival bonus
         dist = torch.linalg.norm(goal_vec, dim=-1, keepdim=True)  # (N,1)
-        arrived = (dist < 0.2).to(torch.float32) * 2.0
+        arrived = (dist < 0.1).to(torch.float32) * 2.0
+        dist_penalty = -0.1 * dist
 
-        total_reward = forward_reward + alignment_reward + arrived
+        total_reward = forward_reward + alignment_reward + arrived + dist_penalty
 
         return total_reward
 
@@ -170,10 +173,23 @@ class JetbotCameraEnv(DirectRLEnv):
 
         self.robot.write_root_state_to_sim(default_root_state, env_ids)
 
-        default_block_root_state = self.goal_marker.data.default_root_state[env_ids]
-        default_block_root_state[:, :3] += self.scene.env_origins[env_ids]
+        # default_block_root_state = self.goal_marker.data.default_root_state[env_ids]
+        # default_block_root_state[:, :3] += self.scene.env_origins[env_ids]
 
-        self.goal_marker.write_root_state_to_sim(default_block_root_state, env_ids)
+        # self.goal_marker.write_root_state_to_sim(default_block_root_state, env_ids)
+
+        N = self.cfg.scene.num_envs
+        self.dirs = torch.randn((N, 3)).cuda()
+        self.dirs[:,2] = 0.0
+        self.dirs = self.dirs/torch.linalg.norm(self.dirs, dim=1, keepdim=True)
+
+        goal_marker_pos = self.radius_l + (self.radius_h - self.radius_l) * torch.rand((N, 1)).cuda()
+        goal_marker_pos = goal_marker_pos*self.dirs + self.robot.data.root_pos_w
+        ### USE THIS TO SET THE POSITION OF THE GOAL MARKER###
+
+        new_goal_state = self.goal_marker.data.default_root_state[env_ids].clone()
+        new_goal_state[:, :3] = goal_marker_pos
+        self.goal_marker.write_root_state_to_sim(new_goal_state, env_ids)
 
         root_pos = self.robot.data.root_pos_w                # (N,3)
         goal_vec = self.goal_marker.data.root_pos_w - root_pos          # (N,3)
