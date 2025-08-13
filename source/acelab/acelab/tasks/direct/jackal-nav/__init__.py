@@ -13,7 +13,7 @@ from . import agents
 
 
 gym.register(
-    id="Template-Jackal-Direct-Grid-v0",
+    id="Template-Jackal-Grid-Direct-v0",
     entry_point=f"{__name__}.jackal_grid_env:JackalGridEnv",
     disable_env_checker=True,
     kwargs={
