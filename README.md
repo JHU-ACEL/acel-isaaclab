@@ -23,7 +23,7 @@ It allows you to develop in an isolated environment, outside of the core Isaac L
 
     ```bash
     # use 'PATH_TO_isaaclab.sh|bat -p' instead of 'python' if Isaac Lab is not installed in Python venv or conda
-    python -m pip install -e source/ace_isaac
+    python -m pip install -e source/acelab
 
 - Verify that the extension is correctly installed by:
 
@@ -74,7 +74,7 @@ This helps in indexing all the python modules for intelligent suggestions while 
 
 ### Setup as Omniverse Extension (Optional)
 
-We provide an example UI extension that will load upon enabling your extension defined in `source/ace_isaac/ace_isaac/ui_extension_example.py`.
+We provide an example UI extension that will load upon enabling your extension defined in `source/acelab/acelab/ui_extension_example.py`.
 
 To enable your extension, follow these steps:
 
@@ -114,7 +114,7 @@ In this case, add the path to your extension in `.vscode/settings.json` under th
 ```json
 {
     "python.analysis.extraPaths": [
-        "<path-to-ext-repo>/source/ace_isaac"
+        "<path-to-ext-repo>/source/acelab"
     ]
 }
 ```

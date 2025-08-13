@@ -81,7 +81,7 @@ from isaaclab_rl.rl_games import RlGamesGpuEnv, RlGamesVecEnvWrapper
 import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils.hydra import hydra_task_config
 
-import ace_isaac.tasks  # noqa: F401
+import acelab.tasks  # noqa: F401
 
 
 @hydra_task_config(args_cli.task, "rl_games_cfg_entry_point")
@@ -194,10 +194,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             entity=args_cli.wandb_entity,
             name=experiment_name,
             sync_tensorboard=True,
-            config=agent_cfg,
             monitor_gym=True,
             save_code=True,
         )
+        wandb.config.update({"env_cfg": env_cfg.to_dict()})
+        wandb.config.update({"agent_cfg": agent_cfg})
 
     if args_cli.checkpoint is not None:
         runner.run({"train": True, "play": False, "sigma": train_sigma, "checkpoint": resume_path})
