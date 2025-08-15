@@ -10,9 +10,13 @@
 
 # No USD files allowed in the repo
 **/*.usd
+**/*.mdl
 **/*.usda
 **/*.usdc
 **/*.usdz
+
+# No images
+**/*.png
 
 # Python
 .DS_Store

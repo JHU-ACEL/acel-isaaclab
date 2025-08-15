@@ -10,13 +10,13 @@ import torch
 from collections.abc import Sequence
 
 import isaaclab.sim as sim_utils
-from isaaclab.assets import Articulation
+from isaaclab.assets import Articulation, RigidObject
 from isaaclab.envs import DirectRLEnv
 from isaaclab.sim.spawners.from_files import GroundPlaneCfg, spawn_ground_plane
 from isaaclab.utils.math import sample_uniform
 from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
-from isaaclab.sensors import TiledCamera
+from isaaclab.sensors import TiledCamera, RayCaster, RayCasterCfg, patterns
 import isaaclab.utils.math as math_utils
 
 
@@ -71,19 +71,19 @@ class JackalGridEnv(DirectRLEnv):
         # Device
         self.gpu = "cuda:0"
 
+        # add ground plane
+        spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg(size=(10000.0, 10000.0)))
+
         # Scene Assets and Sensors
         self.robot = Articulation(self.cfg.robot_cfg)
         self.robot_camera = TiledCamera(self.cfg.tiled_camera)
 
-        # add ground plane
-        spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg(size=(10000.0, 10000.0)))
-
         # clone and replicate
-        self.scene.clone_environments(copy_from_source=False)
+        self.scene.clone_environments(copy_from_source=False) 
 
         # Add sensors and articulations to scene
         self.scene.articulations["robot"] = self.robot
-        self.scene.sensors["robot_camera"] = self.robot_camera
+        self.scene.sensors["tiled_camera"] = self.robot_camera  
 
         # add lights
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
@@ -110,7 +110,7 @@ class JackalGridEnv(DirectRLEnv):
         cube_cfg.prim_path = "/Visuals/Command/position_goal"
         self.goal_markers = VisualizationMarkers(cfg=cube_cfg)
         self.goal_markers.set_visibility(True)
-        self.goal_radius = 4.0
+        self.goal_radius = 5.0
 
         # Data structure to store observation history
         self.history_len = 5
@@ -134,7 +134,7 @@ class JackalGridEnv(DirectRLEnv):
         offsets = torch.pi*plus - torch.pi*minus
         self.yaws = torch.atan(ratio).reshape(-1,1) + offsets.reshape(-1,1)
 
-
+        
     def _visualize_markers(self):
         
         all_envs = torch.arange(self.cfg.scene.num_envs)
@@ -150,7 +150,6 @@ class JackalGridEnv(DirectRLEnv):
 
         self.arrows.visualize(loc, rots, marker_indices=indices)
         self.goal_markers.visualize(self.target_spawns, marker_indices=indices)
-
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
         self.actions = actions.clone()
@@ -238,23 +237,16 @@ class JackalGridEnv(DirectRLEnv):
         default_root_state = self.robot.data.default_root_state[env_ids]
         default_root_state[:, :3] += self.scene.env_origins[env_ids]
         self.robot.write_root_state_to_sim(default_root_state, env_ids)
+
+        # Easy Curriculum
+        # half_span = math.pi/9.0     
+        # angles = torch.empty(len(env_ids), device=self.gpu).uniform_(half_span, -half_span)
     
-        # N = len(env_ids)
-        # device = self.gpu
-        # # 1) sample absolute angles in [π/6, π/4]
-        # min_ang, max_ang = math.pi/8.0, math.pi/7.0
-        # mags = torch.empty(N, device=device).uniform_(min_ang, max_ang)
+        # Hard Curriculum    
+        #angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-math.pi/8.0, -math.pi/8.0)
 
-        # # 2) pick random sign ±1 for each env
-        # signs = torch.where(torch.rand(N, device=device) < 0.5,
-        #                     1.0,  # positive branch
-        #                 -1.0)  # negative branch
-
-        # # 3) combine
-        # angles = mags * signs  # shape (N,)
-
-        half_span = -math.pi/2.0     
-        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(half_span, half_span)
+        # Test Case
+        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(math.pi/6.0, math.pi/6.0)
 
         targets = default_root_state[:, :3].clone()
         targets[:, 0] = targets[:, 0] + self.goal_radius * torch.cos(angles)
