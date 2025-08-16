@@ -71,19 +71,21 @@ class JackalGridEnv(DirectRLEnv):
         # Device
         self.gpu = "cuda:0"
 
-        # add ground plane
-        spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg(size=(10000.0, 10000.0)))
-
         # Scene Assets and Sensors
         self.robot = Articulation(self.cfg.robot_cfg)
         self.robot_camera = TiledCamera(self.cfg.tiled_camera)
+        self.lidar = RayCaster(self.cfg.lidar)
+
+        # add ground plane
+        spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg(size=(10000.0, 10000.0)))
 
         # clone and replicate
         self.scene.clone_environments(copy_from_source=False) 
 
         # Add sensors and articulations to scene
         self.scene.articulations["robot"] = self.robot
-        self.scene.sensors["tiled_camera"] = self.robot_camera  
+        self.scene.sensors["tiled_camera"] = self.robot_camera
+        self.scene.sensors["ray_caster"] = self.lidar  
 
         # add lights
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
@@ -110,7 +112,7 @@ class JackalGridEnv(DirectRLEnv):
         cube_cfg.prim_path = "/Visuals/Command/position_goal"
         self.goal_markers = VisualizationMarkers(cfg=cube_cfg)
         self.goal_markers.set_visibility(True)
-        self.goal_radius = 5.0
+        self.goal_radius = 4.0
 
         # Data structure to store observation history
         self.history_len = 5
@@ -157,8 +159,10 @@ class JackalGridEnv(DirectRLEnv):
 
     def _apply_action(self) -> None:
         self.robot.set_joint_velocity_target(self.actions, joint_ids=self.dof_idx)
+        self.scene.write_data_to_sim()
 
     def _get_observations(self) -> dict:
+        self.scene.update(1.0/120.0)
 
         camera_data = self.robot_camera.data.output["rgb"] / 255.0
         # normalize the camera data for better training results
@@ -239,14 +243,14 @@ class JackalGridEnv(DirectRLEnv):
         self.robot.write_root_state_to_sim(default_root_state, env_ids)
 
         # Easy Curriculum
-        # half_span = math.pi/9.0     
-        # angles = torch.empty(len(env_ids), device=self.gpu).uniform_(half_span, -half_span)
+        half_span = math.pi/9.0     
+        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-half_span, half_span)
     
         # Hard Curriculum    
         #angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-math.pi/8.0, -math.pi/8.0)
 
         # Test Case
-        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(math.pi/6.0, math.pi/6.0)
+        #angles = torch.empty(len(env_ids), device=self.gpu).uniform_(math.pi/6.0, math.pi/6.0)
 
         targets = default_root_state[:, :3].clone()
         targets[:, 0] = targets[:, 0] + self.goal_radius * torch.cos(angles)

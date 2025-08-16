@@ -300,11 +300,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 device=device)
     
     #agent.load("/home/bchien1/ACE_IsaacLabInfrastructure/models_of_interest/grid_world_nav_256/best_agent.pt")
-    agent.load("/home/bchien1/ACE_IsaacLabInfrastructure/runs/torch/Isaac-Jackal-v0/25-08-15_15-39-53-031942_PPO/checkpoints/best_agent.pt")
+    #agent.load("/home/bchien1/ACE_IsaacLabInfrastructure/trained_models/jackal-grid-nav/best_agent_replicated.pt")
 
 
     # configure and instantiate the RL trainer
-    cfg_trainer = {"timesteps": 4000, "headless": True}
+    cfg_trainer = {"timesteps": 8000, "headless": True}
     trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
     # start training

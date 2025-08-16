@@ -19,7 +19,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 class JackalGridEnvCfg(DirectRLEnvCfg):
 
     # Change to 20s ~ 30s when training on the Easy curriculum
-    episode_length_s = 100.0
+    episode_length_s = 25.0
 
     # simulation
     decimation = 2
@@ -35,6 +35,7 @@ class JackalGridEnvCfg(DirectRLEnvCfg):
         #offset=TiledCameraCfg.OffsetCfg(pos=(-5.0, 0.0, 2.0), rot=(1.0, 0.0, 0.0, 0.0), convention="world"),
         data_types=["rgb"],
         spawn=None,
+        #update_latest_camera_pose=True,
         width=64,
         height=64,
     )
@@ -43,21 +44,20 @@ class JackalGridEnvCfg(DirectRLEnvCfg):
     #                          init_state = RigidObjectCfg.InitialStateCfg(pos=(1.5,0,0.05)))
     
 
-    # lidar: RayCasterCfg = RayCasterCfg(
-    #     prim_path="/World/envs/env_.*/Robot/base_link/visuals/mesh_6",
-    #     update_period = 0.1,
-    #     max_distance = 10.0,
-    #     #offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 1.5)),
-    #     pattern_cfg=patterns.GridPatternCfg(
-    #         resolution=1.0,
-    #         size=(1.0, 0.0),
-    #         direction=(1.0, 0.0, 0.0),
-    #     ),
-    #     debug_vis=True,
-    #     ray_alignment = "yaw",
-    #     mesh_prim_paths = ["/World/envs/env_0/marker"],
-    #     #mesh_prim_paths = ["/World/ground"]
-    # )
+    lidar: RayCasterCfg = RayCasterCfg(
+        prim_path="/World/envs/env_.*/Robot/base_link",
+        update_period = 0.1,
+        max_distance = 10.0,
+        #offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 1.5)),
+        pattern_cfg=patterns.GridPatternCfg(
+            resolution=0.5,
+            size=(1.0, 1.0),
+            direction=(0.0, 0.0, -1.0),
+        ),
+        debug_vis=True,
+        #mesh_prim_paths = ["/World/envs/env_0/marker"],
+        mesh_prim_paths = ["/World/ground"]
+    )
     
     # - spaces definition
     state_space = 0
