@@ -73,3 +73,6 @@ tests/
 
 # Docker history
 .isaac-lab-docker-history
+
+# Ignore Pytorch Files
+**/*.pt

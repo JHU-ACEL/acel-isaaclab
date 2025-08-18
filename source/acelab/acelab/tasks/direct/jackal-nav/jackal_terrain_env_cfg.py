@@ -10,7 +10,7 @@ from isaaclab.envs import DirectRLEnvCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sim import SimulationCfg
 from isaaclab.utils import configclass
-from isaaclab.sensors import TiledCameraCfg
+from isaaclab.sensors import TiledCameraCfg, RayCasterCfg, patterns
 from isaaclab.terrains import TerrainImporterCfg
 
 import isaaclab.sim as sim_utils
@@ -56,7 +56,7 @@ class MarsTerrainSceneCfg(InteractiveSceneCfg):
 @configclass
 class JackalTerrainEnvCfg(DirectRLEnvCfg):
 
-    episode_length_s = 5.0
+    episode_length_s = 500.0
 
     # simulation
     decimation = 2
@@ -76,13 +76,28 @@ class JackalTerrainEnvCfg(DirectRLEnvCfg):
     #     height=64,
     # )
 
+    lidar: RayCasterCfg = RayCasterCfg(
+        prim_path="/World/envs/env_.*/Robot/base_link",
+        update_period = 0.1,
+        max_distance = 50.0,
+        offset=RayCasterCfg.OffsetCfg(pos=(0.12, 0.0, 0.333)),
+        pattern_cfg=patterns.LidarPatternCfg(
+            channels=1, vertical_fov_range=[0, 0], horizontal_fov_range=[-180, 180], horizontal_res=1.0
+        ),
+        debug_vis=True,
+        #mesh_prim_paths = ["/World/envs/env_0/marker"],
+        mesh_prim_paths = ["/World/terrain/obstacles"]
+    )
+
+    #/jackal/base_link/sick_lms1xx_lidar_frame
+
     # - spaces definition
     state_space = 0
     action_space = 4
-    observation_space = 3
+    observation_space = 360
     #observation_space = [tiled_camera.height, tiled_camera.width, 3]
 
     # scene
-    scene: MarsTerrainSceneCfg = MarsTerrainSceneCfg(num_envs=1, env_spacing=0.0, replicate_physics=True)
+    scene: MarsTerrainSceneCfg = MarsTerrainSceneCfg(num_envs=100, env_spacing=0.0, replicate_physics=True)
 
     dof_names = ['front_left_wheel_joint', 'front_right_wheel_joint', 'rear_left_wheel_joint', 'rear_right_wheel_joint']
