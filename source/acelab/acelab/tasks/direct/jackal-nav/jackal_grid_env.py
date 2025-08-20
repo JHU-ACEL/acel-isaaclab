@@ -74,6 +74,7 @@ class JackalGridEnv(DirectRLEnv):
         # Scene Assets and Sensors
         self.robot = Articulation(self.cfg.robot_cfg)
         self.robot_camera = TiledCamera(self.cfg.tiled_camera)
+        self.obs = RigidObject(self.cfg.obs_cfg)
         self.lidar = RayCaster(self.cfg.lidar)
 
         # add ground plane
@@ -85,6 +86,7 @@ class JackalGridEnv(DirectRLEnv):
         # Add sensors and articulations to scene
         self.scene.articulations["robot"] = self.robot
         self.scene.sensors["tiled_camera"] = self.robot_camera
+        self.scene.rigid_objects["obstacle"] = self.obs
         self.scene.sensors["ray_caster"] = self.lidar  
 
         # add lights
@@ -136,6 +138,35 @@ class JackalGridEnv(DirectRLEnv):
         offsets = torch.pi*plus - torch.pi*minus
         self.yaws = torch.atan(ratio).reshape(-1,1) + offsets.reshape(-1,1)
 
+
+    def _read_lidar(self) -> torch.Tensor:
+        """
+        Returns per-env 1D scans (shape: [num_envs, num_rays]) in meters.
+
+        - Uses lazy sensor updates (accessing `.data` fetches new data on demand).
+        - Computes Euclidean distances from the sensor origin to each ray hit.
+        - Replaces invalid/missed rays with the configured max distance.
+        """
+        # Accessing `.data` triggers a sensor update under the default lazy setting.
+        data = self.lidar.data  # RayCasterData
+
+        # World-frame sensor origins and hit points
+        pos_w = data.pos_w                 # (N, 3)
+        ray_hits_w = data.ray_hits_w       # (N, B, 3)
+
+        # if (self.common_step_counter % 30 == 0 and self.common_step_counter != 0):
+        #     import pdb; pdb.set_trace()
+
+        # Distances per ray
+        dists = torch.linalg.norm(ray_hits_w - pos_w.unsqueeze(1), dim=-1)  # (N, B)
+
+        # Clean up: replace NaN/Inf or zero (no hit) with max distance; clamp just in case
+        max_d = torch.as_tensor(self.cfg.lidar.max_distance, device=dists.device, dtype=dists.dtype)
+        valid = torch.isfinite(dists) & (dists > 0.0)
+        dists = torch.where(valid, dists, max_d).clamp(max=max_d)
+
+        return dists
+
         
     def _visualize_markers(self):
         
@@ -182,6 +213,12 @@ class JackalGridEnv(DirectRLEnv):
             # _camera_hist[:, 1:] are t-3…t, so cat with new frame at dim=1
             new = camera_data.unsqueeze(1)   # (N,1,H,W,C)
             self._camera_hist = torch.cat([self._camera_hist[:, 1:], new], dim=1)
+
+        dists = self._read_lidar()
+        # if (self.common_step_counter % 100 == 0 and self.common_step_counter != 0):
+        #     import pdb; pdb.set_trace()
+
+
 
         return {"policy": self._camera_hist.clone()}
 

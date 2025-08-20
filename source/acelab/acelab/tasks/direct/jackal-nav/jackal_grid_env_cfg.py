@@ -40,23 +40,37 @@ class JackalGridEnvCfg(DirectRLEnvCfg):
         height=64,
     )
 
-    # obs_cfg = RigidObjectCfg(prim_path="/World/envs/env_.*/marker", spawn=sim_utils.UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/blue_block.usd", scale = (10.0, 100.0, 100.0)), 
-    #                          init_state = RigidObjectCfg.InitialStateCfg(pos=(1.5,0,0.05)))
+    obs_cfg = RigidObjectCfg(prim_path="/World/envs/env_.*/marker", spawn=sim_utils.UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/blue_block.usd", scale = (10.0, 100.0, 100.0)), 
+                             init_state = RigidObjectCfg.InitialStateCfg(pos=(3.0,0,0.05)))
     
+
+    # lidar: RayCasterCfg = RayCasterCfg(
+    #     prim_path="/World/envs/env_.*/Robot/base_link",
+    #     update_period = 0.1,
+    #     max_distance = 10.0,
+    #     #offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 1.5)),
+    #     pattern_cfg=patterns.GridPatternCfg(
+    #         resolution=0.5,
+    #         size=(1.0, 1.0),
+    #         direction=(0.0, 0.0, -1.0),
+    #     ),
+    #     debug_vis=True,
+    #     #mesh_prim_paths = ["/World/envs/env_0/marker"],
+    #     mesh_prim_paths = ["/World/ground"]
+    # )
+
 
     lidar: RayCasterCfg = RayCasterCfg(
         prim_path="/World/envs/env_.*/Robot/base_link",
         update_period = 0.1,
-        max_distance = 10.0,
-        #offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 1.5)),
-        pattern_cfg=patterns.GridPatternCfg(
-            resolution=0.5,
-            size=(1.0, 1.0),
-            direction=(0.0, 0.0, -1.0),
+        max_distance = 50.0,
+        offset=RayCasterCfg.OffsetCfg(pos=(0.12, 0.0, 0.333)),
+        pattern_cfg=patterns.LidarPatternCfg(
+            channels=1, vertical_fov_range=[0, 0], horizontal_fov_range=[-5, 5], horizontal_res=1.0
         ),
         debug_vis=True,
-        #mesh_prim_paths = ["/World/envs/env_0/marker"],
-        mesh_prim_paths = ["/World/ground"]
+        mesh_prim_paths = ["/World/envs/env_0/marker"],
+        #mesh_prim_paths = ["/World/terrain/obstacles"]
     )
     
     # - spaces definition
@@ -66,6 +80,6 @@ class JackalGridEnvCfg(DirectRLEnvCfg):
     #observation_space = [tiled_camera.height, tiled_camera.width, 3]
 
     # scene
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=500, env_spacing=50.0, replicate_physics=True) # Change num_envs to 500 when training
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=1, env_spacing=50.0, replicate_physics=True) # Change num_envs to 500 when training
 
     dof_names = ['front_left_wheel_joint', 'front_right_wheel_joint', 'rear_left_wheel_joint', 'rear_right_wheel_joint']

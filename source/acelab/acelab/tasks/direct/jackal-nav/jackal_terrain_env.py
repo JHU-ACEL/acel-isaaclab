@@ -172,17 +172,23 @@ class JackalTerrainEnv(DirectRLEnv):
         # Advance sim one sensor step (your loop uses 120 Hz)
         self.scene.update(1.0 / 120.0)
 
-        # Lidar + world-frame linear velocity
         dists = self._read_lidar()                                   # (N, B)
-        self._last_lidar = dists                                      # cache for reward/dones
+        self._last_lidar = dists                                     # cache for reward/dones
 
-        # Normalize ranges to [0,1] to help learning; keep vx, vy (world)
-        max_d = torch.as_tensor(self.cfg.lidar.max_distance, device=dists.device, dtype=dists.dtype)
+        max_d = self.cfg.lidar.max_distance
         lidar_norm = dists / max_d                                    # (N, B)
 
         forward_speed = self.robot.data.root_com_lin_vel_b[:,0].reshape(-1,1)
 
+        #print(f"FORWARD SPEEDS:{forward_speed}")
+
+        # if (self.common_step_counter % 10 == 0 and self.common_step_counter != 0):
+        #     print(f"FORWARD SPEEDS:{forward_speed}")
+
         obs = torch.hstack((lidar_norm, forward_speed))                # (N, B+1)
+
+        # if (self.common_step_counter % 30 == 0 and self.common_step_counter != 0):
+        #     import pdb; pdb.set_trace()
 
         return {"policy": obs}
     
@@ -195,37 +201,63 @@ class JackalTerrainEnv(DirectRLEnv):
 
     def _get_rewards(self) -> torch.Tensor:
         # Use cached scan from _get_observations (fallback to fresh read if missing)
+
         dists = getattr(self, "_last_lidar", None)
         if dists is None:
             dists = self._read_lidar()
 
-        # Nearest obstacle distance (meters)
-        nearest_d, nearest_idx = dists.min(dim=1, keepdim=True)   # (N,1)
+        nearest_d, _ = dists.min(dim=1, keepdim=True)   # (N,1)
+        collided = (nearest_d <= 0.75)
+        unsafe = collided.to(dists.dtype)
+        safe = (~collided).to(dists.dtype)
 
-        # Encourage exploration (move) but avoid obstacles
-        explore = self.robot.data.root_com_lin_vel_b[:,0].reshape(-1,1)
+        collision_penalty = unsafe * -10.0 
 
-        # --- Ramping proximity penalty: 0 at >= 3.0m, 1 at <= 0.15m ---
-        d_safe = 1.5
-        d_min  = 0.15
-        # Clamp distance to [d_min, d_safe] so the ramp saturates
-        clamped = torch.clamp(nearest_d, min=d_min, max=d_safe)
-        ramp01  = (d_safe - clamped) / (d_safe - d_min)   # (N,1) in [0,1]
-        # Weight of the proximity penalty
-        w_prox = 2.0
-        prox_pen = w_prox * ramp01
+        forward_reward = torch.relu(self.robot.data.root_com_lin_vel_b[:,0].reshape(-1,1)) * safe 
+        angular_reward = torch.abs(self.robot.data.root_com_ang_vel_b[:,2].reshape(-1,1)) * safe
 
-        # Hard collision penalty when truly touching/overlapping
-        collided = (nearest_d <= d_min)                   # (N,1) bool
-        w_collide = 5.0
-        collision_pen = (-w_collide) * collided.to(dists.dtype)
-        
-        reward = explore - prox_pen + collision_pen
-
-        # if (self.common_step_counter % 30 == 0 and self.common_step_counter != 0):
+        # if (self.common_step_counter % 100 == 0 and self.common_step_counter != 0):
         #     import pdb; pdb.set_trace()
 
+        max_speed = 0.7
+
+        overspeed = (forward_reward > max_speed)
+        
+        forward_reward = torch.where(
+            overspeed,
+            max_speed - forward_reward,
+            forward_reward
+        )
+
+        near3m = (nearest_d <= 3.0)            
+
+        still_positive = (forward_reward > 0)  
+        zero_mask = still_positive & near3m
+
+        forward_reward = torch.where(zero_mask, torch.zeros_like(forward_reward), forward_reward)
+        angular_reward = torch.where(near3m, angular_reward, torch.zeros_like(angular_reward))
+
+        reward = forward_reward + collision_penalty + 2*angular_reward
+
         return reward
+    
+        # Nearest obstacle distance (meters)
+        # nearest_d, nearest_idx = dists.min(dim=1, keepdim=True)   # (N,1)
+
+        # # --- Ramping proximity penalty: 0 at >= 3.0m, 1 at <= 0.15m ---
+        # d_safe = 1.5
+        # d_min  = 0.75
+        # # Clamp distance to [d_min, d_safe] so the ramp saturates
+        # clamped = torch.clamp(nearest_d, min=d_min, max=d_safe)
+        # ramp01  = (d_safe - clamped) / (d_safe - d_min)   # (N,1) in [0,1]
+        # # Weight of the proximity penalty
+        # #w_prox = 1.0
+        # prox_pen = ramp01 * torch.abs(self.robot.data.root_com_lin_vel_b[:, 0:1])
+
+        # # Hard collision penalty when truly touching/overlapping
+        # collided = (nearest_d <= d_min)                   # (N,1) bool
+        # w_collide = 5.0
+        # collision_pen = (-w_collide) * collided.to(dists.dtype) * torch.abs(self.robot.data.root_com_lin_vel_b[:, 0:1])
 
     
     # def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
@@ -234,15 +266,16 @@ class JackalTerrainEnv(DirectRLEnv):
     #     return False, time_out
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
-        # Episode timeout (Isaac Lab standard)
+        
         time_out = self.episode_length_buf >= self.max_episode_length - 1
 
-        # Terminate on collision and reset
+        
         dists = getattr(self, "_last_lidar", None)
         if dists is None:
             dists = self._read_lidar()
+
         nearest_d, _ = dists.min(dim=1, keepdim=True)
-        collided = (nearest_d <= 0.15).squeeze(-1)                      # torch.bool[N]
+        collided = (nearest_d <= 0.75).squeeze(-1)                      # torch.bool[N]
 
         return collided, time_out
     
@@ -255,8 +288,3 @@ class JackalTerrainEnv(DirectRLEnv):
         default_root_state[:, :3] = self.valid_spawns[env_ids+1]
         default_root_state[:, 2] += 0.075
         self.robot.write_root_state_to_sim(default_root_state, env_ids)
-
-        # self.commands[env_ids] = torch.randn((len(env_ids), 3)).cuda()
-        # self.commands[env_ids,-1] = 0.0
-        # self.commands[env_ids] = self.commands[env_ids]/torch.linalg.norm(self.commands[env_ids], dim=1, keepdim=True)
-        # self._visualize_markers()

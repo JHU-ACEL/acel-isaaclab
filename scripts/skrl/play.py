@@ -188,6 +188,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, expe
     experiment_cfg["agent"]["experiment"]["checkpoint_interval"] = 0  # don't generate checkpoints
     runner = Runner(env, experiment_cfg)
 
+    resume_path = "/home/bchien1/ACE_IsaacLabInfrastructure/logs/skrl/cartpole_direct/2025-08-20_11-02-36_ppo_torch/checkpoints/best_agent.pt"
     print(f"[INFO] Loading model checkpoint from: {resume_path}")
     runner.agent.load(resume_path)
     # set agent to evaluation mode

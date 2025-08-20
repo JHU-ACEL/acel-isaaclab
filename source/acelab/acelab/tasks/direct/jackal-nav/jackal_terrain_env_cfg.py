@@ -56,7 +56,7 @@ class MarsTerrainSceneCfg(InteractiveSceneCfg):
 @configclass
 class JackalTerrainEnvCfg(DirectRLEnvCfg):
 
-    episode_length_s = 500.0
+    episode_length_s = 30.0
 
     # simulation
     decimation = 2
@@ -82,19 +82,17 @@ class JackalTerrainEnvCfg(DirectRLEnvCfg):
         max_distance = 50.0,
         offset=RayCasterCfg.OffsetCfg(pos=(0.12, 0.0, 0.333)),
         pattern_cfg=patterns.LidarPatternCfg(
-            channels=1, vertical_fov_range=[0, 0], horizontal_fov_range=[-180, 180], horizontal_res=1.0
+            channels=1, vertical_fov_range=[0, 0], horizontal_fov_range=[-5, 5], horizontal_res=1.0
         ),
         debug_vis=True,
         #mesh_prim_paths = ["/World/envs/env_0/marker"],
         mesh_prim_paths = ["/World/terrain/obstacles"]
     )
 
-    #/jackal/base_link/sick_lms1xx_lidar_frame
-
     # - spaces definition
     state_space = 0
     action_space = 4
-    observation_space = 360
+    observation_space = 11
     #observation_space = [tiled_camera.height, tiled_camera.width, 3]
 
     # scene
