@@ -289,7 +289,7 @@ def main():
                 device=device)
 
 
-    agent.load("/home/bchien1/ACE_IsaacLabInfrastructure/trained_models/jackal-grid-nav/best_agent_replicated.pt")
+    agent.load("/home/bchien1/ACE_IsaacLabInfrastructure/runs/torch/Isaac-Jackal-v0/25-08-22_15-52-49-794020_PPO/checkpoints/best_agent.pt")
     
     # configure and instantiate the RL trainer
     cfg_trainer = {"timesteps": 32000, "headless": True}
