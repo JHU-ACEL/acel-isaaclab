@@ -159,7 +159,7 @@ class JackalTerrainEnv(DirectRLEnv):
             device=self.gpu,
         )
         self.valid_spawns = self.terrainManager.spawn_locations
-        self.valid_spawns = self.get_spawns(self.cfg.scene.num_envs, 25.0)
+        self.valid_spawns = self.get_spawns(self.cfg.scene.num_envs, 30.0)
 
         # Get Mesh vertices and faces
         terrain_prim_path = "/World/terrain/terrain/ground"
@@ -265,15 +265,14 @@ class JackalTerrainEnv(DirectRLEnv):
         forward_reward = vel * mask # torch.Size([N, 1])
         alignment_reward = forward_reward*torch.exp(alignment) # torch.Size([N, 1])
 
-        # Arrival Bonus
-        vec3D = self.target_spawns - self.robot.data.root_pos_w
-        dist2D = torch.linalg.norm(vec3D[:, :2], dim=-1)
-        arrived_mask = dist2D < 0.5
-        arrival_bonus = arrived_mask.to(torch.float32)*2.0 
+        # Arrival bonus
+        vec3D   = self.target_spawns - self.robot.data.root_pos_w         # (N, 3)
+        dist2D  = torch.linalg.norm(vec3D[:, :2], dim=-1, keepdim=True)   # (N, 1)
+        arrival_bonus = (dist2D < 0.5).float() * 2.0                      # (N, 1)
 
-        # Distance Penalty 
-        dist3D = torch.linalg.norm(vec3D, dim=-1)
-        dist_penalty = -0.1 * dist3D
+        # Distance penalty
+        dist3D  = torch.linalg.norm(vec3D, dim=-1, keepdim=True)          # (N, 1)
+        dist_penalty = -0.1 * dist3D                                       # (N, 1)
 
         total_reward = alignment_reward + arrival_bonus + dist_penalty                                 # torch.Size([N, 1])
 
@@ -341,15 +340,14 @@ class JackalTerrainEnv(DirectRLEnv):
         default_root_state[:, 2] += 0.075
         self.robot.write_root_state_to_sim(default_root_state, env_ids)
 
-        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-math.pi/8.0, math.pi/8.0)
-        self.goal_radii[env_ids] = self.goal_radii[env_ids].uniform_(4.0, 6.0)
+        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-math.pi/8.0, -math.pi/8.0)
+        self.goal_radii[env_ids] = self.goal_radii[env_ids].uniform_(-8.0, -8.0)
         targets = default_root_state[:, :3].clone()
         targets[:, 0] = targets[:, 0] + self.goal_radii[env_ids] * torch.cos(angles)
         targets[:, 1] = targets[:, 1] + self.goal_radii[env_ids] * torch.sin(angles)
         targets_xy = targets[:, :2]
         targets[:, 2] = self._nearest_vertex_heights_from_xy(targets_xy, self.mesh_vertices)
         targets[:, 2] += 0.5
-
         self.target_spawns[env_ids] = targets
-        self._visualize_markers()
+
         self._visualize_markers()

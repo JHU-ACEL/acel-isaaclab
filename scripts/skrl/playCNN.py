@@ -308,7 +308,7 @@ def main():
                 action_space=env.action_space,
                 device=device)
 
-    agent.load("/home/bchien1/ACE_IsaacLabInfrastructure/trained_models/jackal-terrain-camera-state-fusion/model2_gridNav_12000_timesteps.pt")
+    agent.load("/home/bchien1/ACE_IsaacLabInfrastructure/trained_models/jackal-terrain-camera-state-fusion/model0_terrain_48000_timesteps.pt")
     
     # configure and instantiate the RL trainer
     cfg_trainer = {"timesteps": 100000, "headless": True}

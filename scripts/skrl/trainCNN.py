@@ -319,11 +319,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 action_space=env.action_space,
                 device=device)
     
-    agent.load("/home/bchien1/ACE_IsaacLabInfrastructure/trained_models/jackal-terrain-camera-state-fusion/model1_gridNav_4000_timesteps.pt")
+    agent.load("/home/bchien1/ACE_IsaacLabInfrastructure/trained_models/jackal-terrain-camera-state-fusion/model2_gridNav_12000_timesteps.pt")
     
 
     # configure and instantiate the RL trainer
-    cfg_trainer = {"timesteps": 12000, "headless": True}
+    cfg_trainer = {"timesteps": 48000, "headless": True}
     trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
     # start training
