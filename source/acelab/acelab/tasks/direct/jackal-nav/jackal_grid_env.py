@@ -72,7 +72,7 @@ class JackalGridEnv(DirectRLEnv):
         self.gpu = "cuda:0"
 
         # add ground plane
-        spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg(size=(10000.0, 10000.0)))
+        spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg(size=(15000.0, 15000.0)))
 
         # Scene Assets and Sensors
         self.robot = Articulation(self.cfg.robot_cfg)
@@ -110,7 +110,8 @@ class JackalGridEnv(DirectRLEnv):
         cube_cfg.prim_path = "/Visuals/Command/position_goal"
         self.goal_markers = VisualizationMarkers(cfg=cube_cfg)
         self.goal_markers.set_visibility(True)
-        self.goal_radius = -5.0
+        #self.goal_radius = 5.0
+        self.goal_radii = torch.empty(self.scene.num_envs, device=self.gpu, dtype=torch.float32)
 
         # Data structure to store observation history
         self.history_len = 5
@@ -182,7 +183,26 @@ class JackalGridEnv(DirectRLEnv):
             new = camera_data.unsqueeze(1)   # (N,1,H,W,C)
             self._camera_hist = torch.cat([self._camera_hist[:, 1:], new], dim=1)
 
-        return {"policy": self._camera_hist.clone()}
+        
+        # world_pos_reshaped = self.robot.data.root_pos_w[:, None, None, None, :].expand(N, T, H, W, 3)
+        # goal_pos_reshaped = self.target_spawns[:, None, None, None, :].expand(N, T, H, W, 3)
+
+        N, T, H, W, C = self._camera_hist.shape
+        #bodyvel = self.robot.data.root_com_lin_vel_b
+        goal_vec = self.target_spawns - self.robot.data.root_pos_w
+        goal_dist = torch.linalg.norm(goal_vec, dim=-1, keepdim=True)
+        unit_goal = self._get_goal_vec_normalized()
+        state_input = torch.hstack((unit_goal, goal_dist))
+        _, S = state_input.shape
+        self.state_input = state_input[:, None, None, None, :].expand(N, T, H, W, S)
+
+
+        final_obs = torch.cat([self._camera_hist.clone(), self.state_input.clone()], dim=-1) # (N,T,H,W,C+4)
+
+        # if (self.common_step_counter % 100 == 0 and self.common_step_counter != 0):
+        #     import pdb; pdb.set_trace()
+
+        return {"policy": final_obs}
 
 
     def _get_rewards(self) -> torch.Tensor:
@@ -202,17 +222,21 @@ class JackalGridEnv(DirectRLEnv):
         mask = (angle <= threshold).to(torch.float32) # torch.Size([N, 1])
         forward_reward = vel * mask # torch.Size([N, 1])
 
-        base_reward = forward_reward*torch.exp(5*alignment) # torch.Size([N, 1])
+        base_reward = forward_reward*torch.exp(alignment) # torch.Size([N, 1])
+
+        #print(f"Alignment: {base_reward}")
 
         # arrival bonus
         dist = torch.linalg.norm(
             self.target_spawns - self.robot.data.root_pos_w, dim=-1, keepdim=True
         ) # torch.Size([N, 1])
-
-
         arrived_mask = dist < 0.5                                                   # BoolTensor (N,1)
-        arrival_bonus = arrived_mask.to(torch.float32) * (1.0 * base_reward)        # torch.Size([N, 1])
-        total_reward = base_reward + arrival_bonus                                  # torch.Size([N, 1])
+        arrival_bonus = arrived_mask.to(torch.float32) * 2.0                        # torch.Size([N, 1])
+
+        # distance penalty
+        dist_penalty = -0.1 * dist
+
+        total_reward = base_reward + arrival_bonus + dist_penalty                                # torch.Size([N, 1])
 
         return total_reward
 
@@ -225,9 +249,6 @@ class JackalGridEnv(DirectRLEnv):
         )
 
         reached = dist_to_goal < 0.5
-
-        # if reached:
-        #     print("GOAL REACHED: TIMEOUT HERE")
 
         return reached, time_out
 
@@ -242,18 +263,20 @@ class JackalGridEnv(DirectRLEnv):
         self.robot.write_root_state_to_sim(default_root_state, env_ids)
 
         # Easy Curriculum
-        half_span = math.pi/9.0     
-        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-half_span, half_span)
+        # half_span = math.pi/9.0
+        # angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-half_span, half_span)
     
         # Hard Curriculum    
-        #angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-math.pi/8.0, -math.pi/8.0)
+        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-math.pi/4.0, math.pi/4.0)
 
         # Test Case
         #angles = torch.empty(len(env_ids), device=self.gpu).uniform_(math.pi/6.0, math.pi/6.0)
 
+        self.goal_radii[env_ids] = self.goal_radii[env_ids].uniform_(8.0, 12.0)
+
         targets = default_root_state[:, :3].clone()
-        targets[:, 0] = targets[:, 0] + self.goal_radius * torch.cos(angles)
-        targets[:, 1] = targets[:, 1] + self.goal_radius * torch.sin(angles)   
+        targets[:, 0] = targets[:, 0] + self.goal_radii[env_ids] * torch.cos(angles)
+        targets[:, 1] = targets[:, 1] + self.goal_radii[env_ids] * torch.sin(angles)   
 
         self.target_spawns[env_ids] = targets
         self._visualize_markers()

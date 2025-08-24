@@ -37,14 +37,14 @@ class MarsTerrainSceneCfg(InteractiveSceneCfg):
     # )
 
     # Obstacles
-    obstacles = AssetBaseCfg(
-        prim_path="/World/terrain/obstacles",
-        spawn=sim_utils.UsdFileCfg(
-            visible=True,
-            usd_path= "/home/bchien1/ACE_IsaacLabInfrastructure/source/acelab/acelab/terrain/mars_terrain/rocks_merged.usd",
-        ),
-        init_state=AssetBaseCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0)),
-    )
+    # obstacles = AssetBaseCfg(
+    #     prim_path="/World/terrain/obstacles",
+    #     spawn=sim_utils.UsdFileCfg(
+    #         visible=True,
+    #         usd_path= "/home/bchien1/ACE_IsaacLabInfrastructure/source/acelab/acelab/terrain/mars_terrain/rocks_merged.usd",
+    #     ),
+    #     init_state=AssetBaseCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0)),
+    # )
 
     # Ground Terrain
     terrain = TerrainImporterCfg(
@@ -56,7 +56,7 @@ class MarsTerrainSceneCfg(InteractiveSceneCfg):
 @configclass
 class JackalTerrainEnvCfg(DirectRLEnvCfg):
 
-    episode_length_s = 5.0
+    episode_length_s = 40.0
 
     # simulation
     decimation = 2
@@ -67,22 +67,21 @@ class JackalTerrainEnvCfg(DirectRLEnvCfg):
 
     
     # sensors
-    # tiled_camera: TiledCameraCfg = TiledCameraCfg(
-    #     prim_path="/World/envs/env_.*/Robot/base_link/bumblebee_stereo_camera_frame/bumblebee_stereo_right_frame/bumblebee_stereo_right_camera",
-    #     #offset=TiledCameraCfg.OffsetCfg(pos=(-5.0, 0.0, 2.0), rot=(1.0, 0.0, 0.0, 0.0), convention="world"),
-    #     data_types=["rgb"],
-    #     spawn=None,
-    #     width=64,
-    #     height=64,
-    # )
+    tiled_camera: TiledCameraCfg = TiledCameraCfg(
+        prim_path="/World/envs/env_.*/Robot/base_link/bumblebee_stereo_camera_frame/bumblebee_stereo_right_frame/bumblebee_stereo_right_camera",
+        #offset=TiledCameraCfg.OffsetCfg(pos=(-5.0, 0.0, 2.0), rot=(1.0, 0.0, 0.0, 0.0), convention="world"),
+        data_types=["rgb"],
+        spawn=None,
+        width=64,
+        height=64,
+    )
 
     # - spaces definition
     state_space = 0
     action_space = 4
-    observation_space = 3
-    #observation_space = [tiled_camera.height, tiled_camera.width, 3]
+    observation_space = [5, tiled_camera.height, tiled_camera.width, 7]
 
     # scene
-    scene: MarsTerrainSceneCfg = MarsTerrainSceneCfg(num_envs=1, env_spacing=0.0, replicate_physics=True)
+    scene: MarsTerrainSceneCfg = MarsTerrainSceneCfg(num_envs=25, env_spacing=0.0, replicate_physics=True)
 
     dof_names = ['front_left_wheel_joint', 'front_right_wheel_joint', 'rear_left_wheel_joint', 'rear_right_wheel_joint']

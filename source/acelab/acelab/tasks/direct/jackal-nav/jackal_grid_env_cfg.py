@@ -19,7 +19,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 class JackalGridEnvCfg(DirectRLEnvCfg):
 
     # Change to 20s ~ 30s when training on the Easy curriculum
-    episode_length_s = 25.0
+    episode_length_s = 50.0
 
     # simulation
     decimation = 2
@@ -62,10 +62,22 @@ class JackalGridEnvCfg(DirectRLEnvCfg):
     # - spaces definition
     state_space = 0
     action_space = 4
-    observation_space = [5, tiled_camera.height, tiled_camera.width, 3]
+    observation_space = [5, tiled_camera.height, tiled_camera.width, 7]
     #observation_space = [tiled_camera.height, tiled_camera.width, 3]
 
     # scene
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=500, env_spacing=50.0, replicate_physics=True) # Change num_envs to 500 when training
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=1, env_spacing=75.0, replicate_physics=True) # Change num_envs to 500 when training
 
     dof_names = ['front_left_wheel_joint', 'front_right_wheel_joint', 'rear_left_wheel_joint', 'rear_right_wheel_joint']
+
+
+'''
+
+Curriculum-Based Training:
+
+1. Angle of the Goal Marker at (-pi/9, pi/9), radius between 4 and 5 meters, 500 environments, episode length 25 seconds, 8000 timesteps
+2. Angle of the Goal Marker at either pi/8 or -pi/8, radius between 4 and 5 meters, 500 environments, episode length 25 seconds, 4000 timesteps
+3. Angle of the Goal Marker at (-pi/4, pi/4), radius between 8 and 12 meters, 500 environments, spacing of 75.0, episode length 45 seconds, 12000 timesteps
+    (could potentially be 8000)
+
+'''

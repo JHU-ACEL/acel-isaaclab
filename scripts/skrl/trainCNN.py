@@ -136,10 +136,16 @@ class Shared(GaussianMixin, DeterministicMixin, Model):
         self.observation_space = observation_space
         self.device = device
         self.steps, self.camera_h, self.camera_w, self.channels = observation_space.shape
+
+        self.camera_channels = self.channels - 4
+        self.state_space = self.channels - 3
         self.action_space = action_space.shape[0]
 
+
+        ''' Shared Backbone'''
+        # Convolutional Neural Network
         self.features_extractor = nn.Sequential(
-            nn.Conv2d(in_channels=self.channels,  
+            nn.Conv2d(in_channels=self.camera_channels,  
                       out_channels=32, kernel_size=8, stride=4, padding=0),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
@@ -149,28 +155,34 @@ class Shared(GaussianMixin, DeterministicMixin, Model):
             nn.AdaptiveAvgPool2d((2, 2)),
             nn.Flatten()
         )
-
         self.features_extractor = self.features_extractor.to(device)
 
         with torch.no_grad():
             # dummy state: batch=1, channels, height, width
             dummy = torch.zeros(1,
-                                self.channels,
+                                self.camera_channels,
                                 self.camera_h,
                                 self.camera_w,
                                 device=device)
             feat_dim = self.features_extractor(dummy).shape[1]
-
         print(f"FEATURE DIMENSION: {feat_dim}")
         self.feat_dim = feat_dim
-            
-        self.fc1 = nn.Sequential(nn.Linear(self.steps*feat_dim, 512),
+        self.cnn_fc1 = nn.Sequential(nn.Linear(self.steps*feat_dim, 512),
                                  nn.ELU())
+        
+        # MLP For State
+        self.state_net = nn.Sequential(nn.Linear(self.state_space, 128),
+                                 nn.ELU(),
+                                 nn.Linear(128, 128),
+                                 nn.ELU(),
+                                 nn.Linear(128, 128),
+                                 nn.ELU())
+        ''''''
 
-        self.mean_layer = nn.Linear(512, self.action_space)
+        self.mean_layer = nn.Linear(640, self.action_space)
         self.log_std_parameter = nn.Parameter(torch.zeros(self.action_space))
 
-        self.value_layer = nn.Linear(512, 1)
+        self.value_layer = nn.Linear(640, 1)
         self.to(device)
 
     def act(self, inputs, role):
@@ -180,11 +192,16 @@ class Shared(GaussianMixin, DeterministicMixin, Model):
             return DeterministicMixin.act(self, inputs, role)
 
     def compute(self, inputs, role):
- 
-        obs = unflatten_tensorized_space(self.observation_space, inputs["states"])
-        # obs: (N, T, H, W, C) shaped 5-dimensional tensors
 
-        per_frame_obs = list(torch.unbind(obs, dim=1))
+        # import pdb; pdb.set_trace()
+        obs = unflatten_tensorized_space(self.observation_space, inputs["states"])
+        # obs: (N, T, H, W, C+6) shaped 5-dimensional tensors
+
+        cam_hist = obs[..., :-self.state_space] 
+        state_map = obs[..., -self.state_space:]
+        state_map = state_map[:, 0, 0, 0, :] 
+
+        per_frame_obs = list(torch.unbind(cam_hist, dim=1))
         # per_frame_obs: list of 4-D tensors, each shape (N, H, W, C)
 
         frame_feats = []
@@ -199,7 +216,10 @@ class Shared(GaussianMixin, DeterministicMixin, Model):
 
         
         flat_feats = torch.cat(frame_feats, dim=1)              # → (N, 5 * feat_dim)
-        shared = self.fc1(flat_feats)                           # → (N, 512)
+        cnn_final = self.cnn_fc1(flat_feats)                    # → (N, 512)
+        state_feats = self.state_net(state_map)
+
+        shared = torch.cat([cnn_final, state_feats], dim=1)
 
         if role == "policy":
             mean_action = self.mean_layer(shared)
@@ -299,14 +319,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 action_space=env.action_space,
                 device=device)
     
-    #agent.load("/home/bchien1/ACE_IsaacLabInfrastructure/models_of_interest/grid_world_nav_256/best_agent.pt")
-    #agent.load("/home/bchien1/ACE_IsaacLabInfrastructure/runs/torch/Isaac-Jackal-v0/25-08-15_15-39-53-031942_PPO/checkpoints/best_agent.pt")
-
-    agent.load("/home/bchien1/ACE_IsaacLabInfrastructure/runs/torch/Isaac-Jackal-v0/25-08-22_15-25-47-881600_PPO/checkpoints/best_agent.pt")
-
+    agent.load("/home/bchien1/ACE_IsaacLabInfrastructure/trained_models/jackal-terrain-camera-state-fusion/model1_gridNav_4000_timesteps.pt")
+    
 
     # configure and instantiate the RL trainer
-    cfg_trainer = {"timesteps": 4000, "headless": True}
+    cfg_trainer = {"timesteps": 12000, "headless": True}
     trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
     # start training
