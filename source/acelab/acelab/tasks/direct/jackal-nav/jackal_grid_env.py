@@ -267,12 +267,12 @@ class JackalGridEnv(DirectRLEnv):
         # angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-half_span, half_span)
     
         # Hard Curriculum    
-        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-math.pi/4.0, math.pi/4.0)
+        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(math.pi/4.0, math.pi/4.0)
 
         # Test Case
         #angles = torch.empty(len(env_ids), device=self.gpu).uniform_(math.pi/6.0, math.pi/6.0)
 
-        self.goal_radii[env_ids] = self.goal_radii[env_ids].uniform_(8.0, 12.0)
+        self.goal_radii[env_ids] = self.goal_radii[env_ids].uniform_(12.0, 12.0)
 
         targets = default_root_state[:, :3].clone()
         targets[:, 0] = targets[:, 0] + self.goal_radii[env_ids] * torch.cos(angles)

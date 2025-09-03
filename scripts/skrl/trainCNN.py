@@ -284,12 +284,12 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # configure and instantiate the agent (visit its documentation to see all the options)
     # https://skrl.readthedocs.io/en/latest/api/agents/ppo.html#configuration-and-hyperparameters
     cfg = PPO_DEFAULT_CONFIG.copy()
-    cfg["rollouts"] = 64  # memory_size
-    cfg["learning_epochs"] = 4
-    cfg["mini_batches"] = 4  # 24 * 4096 / 24576
+    cfg["rollouts"] = 32  # memory_size
+    cfg["learning_epochs"] = 8
+    cfg["mini_batches"] = 8
     cfg["discount_factor"] = 0.99
     cfg["lambda"] = 0.95
-    cfg["learning_rate"] = 1.0e-04
+    cfg["learning_rate"] = 5.0e-04
     cfg["learning_rate_scheduler"] = KLAdaptiveRL
     cfg["learning_rate_scheduler_kwargs"] = {"kl_threshold": 0.008}
     cfg["random_timesteps"] = 0
@@ -299,12 +299,12 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     cfg["value_clip"] = 0.2
     cfg["clip_predicted_values"] = True
     cfg["entropy_loss_scale"] = 0.0
-    cfg["value_loss_scale"] = 1.0
-    cfg["kl_threshold"] = 0
+    cfg["value_loss_scale"] = 2.0
+    cfg["kl_threshold"] = 0.0
     cfg["rewards_shaper"] = None
     cfg["time_limit_bootstrap"] = False
-    # cfg["state_preprocessor"] = RunningStandardScaler
-    # cfg["state_preprocessor_kwargs"] = {"size": env.observation_space, "device": device}
+    cfg["state_preprocessor"] = RunningStandardScaler
+    cfg["state_preprocessor_kwargs"] = {"size": env.observation_space, "device": device}
     cfg["value_preprocessor"] = RunningStandardScaler
     cfg["value_preprocessor_kwargs"] = {"size": 1, "device": device}
     # logging to TensorBoard and write checkpoints (in timesteps)
@@ -319,11 +319,8 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 action_space=env.action_space,
                 device=device)
     
-    agent.load("/home/bchien1/ACE_IsaacLabInfrastructure/trained_models/jackal-terrain-camera-state-fusion/model2_gridNav_12000_timesteps.pt")
-    
-
     # configure and instantiate the RL trainer
-    cfg_trainer = {"timesteps": 48000, "headless": True}
+    cfg_trainer = {"timesteps": 36000, "headless": True}
     trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
     # start training

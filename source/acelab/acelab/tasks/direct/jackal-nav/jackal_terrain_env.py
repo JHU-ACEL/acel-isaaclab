@@ -20,7 +20,6 @@ from isaaclab.sensors import TiledCamera
 import isaaclab.utils.math as math_utils
 
 from .jackal_terrain_env_cfg import JackalTerrainEnvCfg
-from .terrain_utils.terrain_utils import TerrainManager
 from .terrain_utils.usd_utils import get_triangles_and_vertices_from_prim
 
 GOAL_MARKER_CFG = VisualizationMarkersCfg(
@@ -29,6 +28,17 @@ GOAL_MARKER_CFG = VisualizationMarkersCfg(
             size=(0.25, 0.25, 1.0),
             visual_material=sim_utils.PreviewSurfaceCfg(
                 diffuse_color=(1.0, 0.0, 0.0)),
+        ),
+    }
+)
+
+# Mesh Vertices Markers
+MESH_MARKERS_CFG = VisualizationMarkersCfg(
+    markers={
+        "sphere": sim_utils.SphereCfg(
+            radius=0.1,
+            visual_material=sim_utils.PreviewSurfaceCfg(
+                diffuse_color=(0.0, 1.0, 1.0)),
         ),
     }
 )
@@ -53,6 +63,74 @@ def define_markers() -> VisualizationMarkers:
     return VisualizationMarkers(cfg=marker_cfg)
 
 
+def sample_min_separation_xy(points_xyz: torch.Tensor, N: int, M: float, seed_idx: int | None = None):
+    """
+    points_xyz: (P, 3) float tensor
+    N: number of points you want (will return <= N if impossible)
+    M: minimum XY separation
+    seed_idx: optional starting index for reproducibility
+
+    Returns:
+        idx (K,) long tensor of chosen indices (K <= N)
+        pts (K, 3) tensor of chosen points
+    """
+    assert points_xyz.ndim == 2 and points_xyz.shape[1] == 3
+    P = points_xyz.shape[0]
+    device = points_xyz.device
+    xy = points_xyz[:, :2].to(torch.float32)
+
+    # Choose a seed
+    if seed_idx is None:
+        seed_idx = torch.randint(0, P, (1,), device=device).item()
+
+    chosen = torch.empty(N, dtype=torch.long, device=device)
+    chosen[0] = seed_idx
+
+    # Track each point's distance^2 to the nearest chosen point so far
+    # Initialize with distances to the seed
+    diff = xy - xy[seed_idx]
+    min_d2 = (diff * diff).sum(dim=1)  # (P,)
+
+    M2 = float(M) * float(M)
+
+    k = 1
+    while k < N:
+        # Pick the point that is farthest from the chosen set
+        far_idx = torch.argmax(min_d2)
+
+        # If even the farthest point is closer than M, we cannot add more
+        if min_d2[far_idx] < M2:
+            break
+
+        chosen[k] = far_idx
+
+        # Update min distances with the newly selected point
+        diff = xy - xy[far_idx]
+        d2 = (diff * diff).sum(dim=1)
+        min_d2 = torch.minimum(min_d2, d2)
+
+        k += 1
+
+    chosen = chosen[:k]
+    return chosen, points_xyz.index_select(0, chosen)
+
+
+def trim_boundary_aabb(points_xyz: torch.Tensor, M: float):
+    """
+    Remove points within M of the axis-aligned XY boundary.
+    points_xyz: (P, 3) tensor
+    """
+    xy = points_xyz[:, :2]
+    mins = xy.min(dim=0).values           # (2,)
+    maxs = xy.max(dim=0).values           # (2,)
+    mask = (
+        (xy[:, 0] >= mins[0] + M) & (xy[:, 0] <= maxs[0] - M) &
+        (xy[:, 1] >= mins[1] + M) & (xy[:, 1] <= maxs[1] - M)
+    )
+    keep_idx = mask.nonzero(as_tuple=False).squeeze(1)
+    return keep_idx, points_xyz[keep_idx]
+
+
 class JackalTerrainEnv(DirectRLEnv):
     cfg: JackalTerrainEnvCfg
 
@@ -60,58 +138,10 @@ class JackalTerrainEnv(DirectRLEnv):
         super().__init__(cfg, render_mode, **kwargs)
         self.dof_idx, _ = self.robot.find_joints(self.cfg.dof_names)
 
-    def get_spawns(self, num_envs: int, dist: float):
-        """
-        Build self.valid_spawns2 by greedy spacing on (x, y):
-        - start with the first point in self.valid_spawns
-        - add the next point whose (x,y) distance is >= dist from all selected
-        - stop when reaching num_envs or no more valid points
-        Returns: self.valid_spawns2 (K, D), where K <= min(num_envs, N)
-        """
-        pts = self.valid_spawns                 # (N, D), e.g., D=3 for (x,y,z)
-        if pts.numel() == 0:
-            valid_spawns2 = pts.new_zeros((0, pts.shape[1]))
-            return valid_spawns2
-
-        N, D = pts.shape
-        target_count = min(num_envs, N)
-        xy = pts[:, :2]                         # only (x, y) for distance checks
-        dist2 = float(dist) * float(dist)
-
-        # Always include the first point
-        selected_idx = [0]
-
-        # Track minimum squared distance to the selected set for each point
-        min_d2 = torch.sum((xy - xy[0])**2, dim=1)
-
-        # Candidates are those at least 'dist' from ALL selected so far
-        valid = (min_d2 >= dist2)
-        valid[0] = False  # already selected
-
-        while len(selected_idx) < target_count:
-            cand = torch.nonzero(valid, as_tuple=False).squeeze(1)
-            if cand.numel() == 0:
-                break  # no more points satisfy the spacing
-
-            # Take the next valid point in original order (first index)
-            i = int(cand[0].item())
-            selected_idx.append(i)
-
-            # Update min distance-to-selected with the new point
-            d2 = torch.sum((xy - xy[i])**2, dim=1)
-            min_d2 = torch.minimum(min_d2, d2)
-
-            # Recompute validity against all selected (via min distance)
-            valid = (min_d2 >= dist2)
-            # ensure already-selected don't get re-picked
-            valid[torch.tensor(selected_idx, device=pts.device)] = False
-
-        valid_spawns2 = pts[torch.tensor(selected_idx, device=pts.device, dtype=torch.long)]
-        return valid_spawns2
-
     def _setup_scene(self):
 
         self.gpu = "cuda:0"
+        self.max_timesteps = 12000
 
         self.robot = Articulation(self.cfg.robot_cfg)
         self.robot_camera = TiledCamera(self.cfg.tiled_camera)
@@ -125,7 +155,6 @@ class JackalTerrainEnv(DirectRLEnv):
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
 
-        
         # Arrow Markers Initialization (For Debugging/Visualization Purposes)
         self.arrows = define_markers()
         self.up_dir = torch.tensor([0.0, 0.0, 1.0]).cuda()  
@@ -153,19 +182,22 @@ class JackalTerrainEnv(DirectRLEnv):
         self.history_len = 5
         self._camera_hist: torch.Tensor | None = None
 
-        # Terrain Manager
-        self.terrainManager = TerrainManager(
-            num_envs=self.cfg.scene.num_envs, 
-            device=self.gpu,
-        )
-        self.valid_spawns = self.terrainManager.spawn_locations
-        self.valid_spawns = self.get_spawns(self.cfg.scene.num_envs, 30.0)
-
         # Get Mesh vertices and faces
         terrain_prim_path = "/World/terrain/terrain/ground"
         faces, self.mesh_vertices = get_triangles_and_vertices_from_prim(terrain_prim_path)
         self.mesh_vertices = torch.from_numpy(self.mesh_vertices).to(self.gpu)
         self.face_vertices = self.mesh_vertices[faces]
+
+        _, self.candidate_spawns = trim_boundary_aabb(self.mesh_vertices, 20.0)
+        _, self.valid_spawns = sample_min_separation_xy(self.candidate_spawns, self.cfg.scene.num_envs, 30.0)
+        self.valid_spawns[:,2] += 0.05
+
+        # # SETUP FOR PLOTTING VERTICES OF THE MESH (FOR DEBUGGING PURPOSES)
+        # vertex_cfg = MESH_MARKERS_CFG.copy()
+        # vertex_cfg.prim_path = "/Visuals/spawns"
+        # self.vertex_markers = VisualizationMarkers(cfg=vertex_cfg)
+        # self.vertex_markers.set_visibility(True)
+        # self.vertex_markers.visualize(self.valid_spawns2)
 
     def _get_goal_vec_normalized(self):
     
@@ -265,16 +297,25 @@ class JackalTerrainEnv(DirectRLEnv):
         forward_reward = vel * mask # torch.Size([N, 1])
         alignment_reward = forward_reward*torch.exp(alignment) # torch.Size([N, 1])
 
-        # Arrival bonus
+        # Arrival bonus, scaled by time remaining in episode
         vec3D   = self.target_spawns - self.robot.data.root_pos_w         # (N, 3)
         dist2D  = torch.linalg.norm(vec3D[:, :2], dim=-1, keepdim=True)   # (N, 1)
-        arrival_bonus = (dist2D < 0.5).float() * 2.0                      # (N, 1)
+        remaining = (self.max_episode_length - self.episode_length_buf).clamp(min=0)
+        remaining = remaining.to(self.gpu, dtype=torch.float32).unsqueeze(-1)
+        frac_left = remaining / float(self.max_episode_length)
+        remaining_time_gain = 1.0 + 1.0 * frac_left
+        arrival_bonus = (dist2D < 0.5).float() * (2.0 * remaining_time_gain)                    # (N, 1)
 
-        # Distance penalty
+        # Distance Penalty
         dist3D  = torch.linalg.norm(vec3D, dim=-1, keepdim=True)          # (N, 1)
-        dist_penalty = -0.1 * dist3D                                       # (N, 1)
+        dist_penalty = -0.1 * dist3D
 
-        total_reward = alignment_reward + arrival_bonus + dist_penalty                                 # torch.Size([N, 1])
+        # Penalize Flipping/Tipping Over
+        gravity_vec = self.robot.data.projected_gravity_b
+        flipped = (gravity_vec[:, 2] > 0.0).unsqueeze(-1)
+        flip_penalty = (-5.0) * flipped.to(torch.float32)
+
+        total_reward = alignment_reward + arrival_bonus + dist_penalty + flip_penalty                              # torch.Size([N, 1])
 
         return total_reward
     
@@ -284,13 +325,16 @@ class JackalTerrainEnv(DirectRLEnv):
 
         dist = self.target_spawns - self.robot.data.root_pos_w 
         dist_xy = torch.linalg.norm(dist[:, :2], dim=-1)
-
         reached = dist_xy < 0.5
+
+        flipped = self.robot.data.projected_gravity_b[:, 2] > 0.0
+
+        terminated = reached | flipped
 
         # if reached:
         #     print("GOAL REACHED: TIMEOUT HERE")
 
-        return reached, time_out
+        return terminated, time_out
     
 
     @torch.no_grad()    
@@ -340,8 +384,34 @@ class JackalTerrainEnv(DirectRLEnv):
         default_root_state[:, 2] += 0.075
         self.robot.write_root_state_to_sim(default_root_state, env_ids)
 
-        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-math.pi/8.0, -math.pi/8.0)
-        self.goal_radii[env_ids] = self.goal_radii[env_ids].uniform_(-8.0, -8.0)
+        ###
+
+        # N = len(env_ids)
+        # device = self.gpu
+        # dtype = self.robot.data.root_pos_w.dtype  # keep float dtype consistent
+
+        # # [-π/2, -5π/12, ..., 0, ..., +5π/12, +π/2]
+        # choices = torch.arange(-6, 7, device=device) * (math.pi / 12.0)
+        # choices = choices.to(dtype)
+
+        # idx = torch.randint(choices.numel(), (N,), device=device)
+        # angles = choices[idx]              # shape: (N,)
+
+        ###
+
+        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-math.pi/10.0, math.pi/10.0)
+        self.goal_radii[env_ids] = self.goal_radii[env_ids].uniform_(4.0, 5.0)
+
+        # if (self.common_step_counter >= self.max_timesteps/2.0):
+        #     angles = torch.empty(len(env_ids), device=self.gpu).uniform_(math.pi/8.0, math.pi/8.0)
+        #     self.goal_radii[env_ids] = self.goal_radii[env_ids].uniform_(8.0, 8.0)
+
+        # r = self.goal_radii[env_ids]                     
+        # r.uniform_(6.0, 8.0)                             
+        # sign = torch.randint(0, 2, r.shape, device=r.device, dtype=r.dtype) * 2 - 1
+        # r.mul_(sign)      
+        # self.goal_radii[env_ids] = r                               # now in [-8,-6] ∪ [6,8]
+
         targets = default_root_state[:, :3].clone()
         targets[:, 0] = targets[:, 0] + self.goal_radii[env_ids] * torch.cos(angles)
         targets[:, 1] = targets[:, 1] + self.goal_radii[env_ids] * torch.sin(angles)
