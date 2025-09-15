@@ -3,10 +3,14 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+
+#source /home/bchien1/IsaacSim/_build/linux-x86_64/release/setup_conda_env.sh
+
 from __future__ import annotations
 
 import gymnasium as gym
 import torch
+import numpy as np
 
 import isaaclab.sim as sim_utils
 from isaaclab.assets import Articulation, ArticulationCfg
@@ -18,6 +22,7 @@ from isaaclab.sim import SimulationCfg
 from isaaclab.terrains import TerrainImporterCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.math import subtract_frame_transforms
+from isaaclab.sensors import TiledCameraCfg, TiledCamera
 
 ##
 # Pre-defined configs
@@ -99,6 +104,18 @@ class QuadcopterEnvCfg(DirectRLEnvCfg):
     ang_vel_reward_scale = -0.01
     distance_to_goal_reward_scale = 15.0
 
+    # sensors
+    tiled_camera: TiledCameraCfg = TiledCameraCfg(
+        prim_path="/World/envs/env_.*/Robot/base_link/depth_camera/depth_camera",
+        # offset=TiledCameraCfg.OffsetCfg(pos=(-0.1, 0.0, 0.0), convention="world"),
+        data_types=["depth"],
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=24.0, focus_distance=400.0, horizontal_aperture=20.955, clipping_range=(0.1, 20.0)
+        ),
+        width=100,
+        height=100,
+    )
+    #observation_space = [tiled_camera.height, tiled_camera.width, 1]
 
 class QuadcopterEnv(DirectRLEnv):
     cfg: QuadcopterEnvCfg
@@ -110,8 +127,9 @@ class QuadcopterEnv(DirectRLEnv):
         self._actions = torch.zeros(self.num_envs, gym.spaces.flatdim(self.single_action_space), device=self.device)
         self._thrust = torch.zeros(self.num_envs, 1, 3, device=self.device)
         self._moment = torch.zeros(self.num_envs, 1, 3, device=self.device)
+
         # Goal position
-        self._desired_pos_w = torch.zeros(self.num_envs, 3, device=self.device)
+        #self._desired_pos_w = torch.zeros(self.num_envs, 3, device=self.device)
 
         # Logging
         self._episode_sums = {
@@ -131,14 +149,87 @@ class QuadcopterEnv(DirectRLEnv):
         # add handle for debug visualization (this is set to a valid handle inside set_debug_vis)
         self.set_debug_vis(self.cfg.debug_vis)
 
+
+    def _sphere_world(self, bound_height, bound_width, bound_length, drone_horizontal_offset):
+
+        base_prim = "/World/envs/env_0/Obstacles"
+        sphere_radius = 0.35
+        sphere_count = 5
+
+        # In environment 0, the drone will spawn at (0.0, 0.0, 3.0)
+
+        # Sample 5 locations that are within a bounding rectangular prism. The rectangular prism's centroid is at 
+        # ((drone_horizontal_offset + bound_length)*0.5, 0.0, 3.0 ). Do this only. Store these 3D coordinates in some data structure
+        # that can be looped over. 
+
+        import numpy as np
+
+        # Prism centroid as specified
+        cx = (drone_horizontal_offset + bound_length) * 0.5
+        cy = 0.0
+        cz = 1.5
+
+        # Half-extents
+        hx = 0.5 * bound_length
+        hy = 0.5 * bound_width
+        hz = 0.5 * bound_height
+
+        # Axis-aligned bounds
+        xmin, xmax = cx - hx, cx + hx
+        ymin, ymax = cy - hy, cy + hy
+        zmin, zmax = cz - hz, cz + hz
+
+        rng = np.random.default_rng()
+        samples = rng.uniform(
+            low=[xmin, ymin, zmin],
+            high=[xmax, ymax, zmax],
+            size=(sphere_count, 3),
+        )
+
+        # Store in a loopable structure (list of tuples) and also on self for later use
+        self._sphere_centers = [tuple(p) for p in samples]
+
+
+        # material / physics
+        col_cfg = sim_utils.CollisionPropertiesCfg(collision_enabled=True)
+
+        rigid_cfg = sim_utils.RigidBodyPropertiesCfg(
+            disable_gravity=True,
+            kinematic_enabled=True,
+            max_depenetration_velocity=2.0,
+        )
+
+        # pick a subtle material to see them easily
+        # visual_mat = sim_utils.VisualMaterialCfg(
+        #     diffuse_color=(0.75, 0.85, 0.95, 1.0),
+        #     emissive_color=(0.0, 0.0, 0.0),
+        #     roughness=0.8,
+        #     metallic=0.0,
+        # )
+
+
+        for i in range(len(self._sphere_centers)):
+            prim_path = f"{base_prim}/sphere_{i:03d}"
+
+            trans = self._sphere_centers[i]
+
+            sphere_cfg = sim_utils.SphereCfg(  # available in Isaac Lab’s primitive shapes
+                radius=sphere_radius,
+                collision_props=col_cfg,
+                rigid_props=rigid_cfg,
+                # visual_material=visual_mat,
+            )
+
+            sphere_cfg.func(prim_path, sphere_cfg, translation=trans)
+
     def _setup_scene(self):
         self._robot = Articulation(self.cfg.robot)
         self.scene.articulations["robot"] = self._robot
 
-        obs_scene_cfg = sim_utils.UsdFileCfg(usd_path="/home/bchien1/ACE_IsaacLabInfrastructure/source/acelab/acelab/scenes/sphere_world.usd", 
-                                         collision_props=sim_utils.CollisionPropertiesCfg(),)
-        obs_prim_path = "/World/envs/env_.*/Obstacle"
-        obs_scene_cfg.func(obs_prim_path, obs_scene_cfg)
+        # self._tiled_camera = TiledCamera(self.cfg.tiled_camera)
+        # self.scene.sensors["tiled_camera"] = self._tiled_camera
+
+        #self._sphere_world(3, 3, 5, -1.0)
 
         self.cfg.terrain.num_envs = self.scene.cfg.num_envs
         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
