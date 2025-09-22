@@ -40,11 +40,17 @@ CRAZYFLIE_CFG = ArticulationCfg(
             ".*": 0.0,
         },
         joint_vel={
-            "m1_joint": 200.0,
-            "m2_joint": -200.0,
-            "m3_joint": 200.0,
-            "m4_joint": -200.0,
+            "m1_joint": 0.0,
+            "m2_joint": -0.0,
+            "m3_joint": 0.0,
+            "m4_joint": -0.0,
         },
+        # joint_vel={
+        #     "m1_joint": 200.0,
+        #     "m2_joint": -200.0,
+        #     "m3_joint": 200.0,
+        #     "m4_joint": -200.0,
+        # },
     ),
     actuators={
         "dummy": ImplicitActuatorCfg(
@@ -60,7 +66,7 @@ CRAZYFLIE_CFG = ArticulationCfg(
 IRIS_CFG = ArticulationCfg(
     prim_path="{ENV_REGEX_NS}/Robot",
     spawn=sim_utils.UsdFileCfg(
-        usd_path="/home/bchien1/acel-isaaclab/source/acelab/acelab/robots/quadcopters/iris_usd/iris-depth-camera.usd",
+        usd_path="/home/bchien1/acel-isaaclab/source/acelab/acelab/robots/quadcopters/iris_usd/iris.usd",
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
             max_depenetration_velocity=10.0,
@@ -81,10 +87,10 @@ IRIS_CFG = ArticulationCfg(
             ".*": 0.0,
         },
         joint_vel={
-            "rotor_0_joint": 200.0,
-            "rotor_1_joint": -200.0,
-            "rotor_2_joint": 200.0,
-            "rotor_3_joint": -200.0,
+            "rotor_0_joint": 0.0,
+            "rotor_1_joint": -0.0,
+            "rotor_2_joint": 0.0,
+            "rotor_3_joint": -0.0,
         },
     ),
     actuators={
