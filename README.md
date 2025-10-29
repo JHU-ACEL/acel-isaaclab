@@ -1,25 +1,18 @@
-# Template for Isaac Lab Projects
+# Isaac Lab Environments For Training Robots with RL Libraries and Visualizing in Isaac Sim
 
 ## Overview
 
-This project/repository serves as a template for building projects or extensions based on Isaac Lab.
-It allows you to develop in an isolated environment, outside of the core Isaac Lab repository.
-
-**Key Features:**
-
-- `Isolation` Work outside the core Isaac Lab repository, ensuring that your development efforts remain self-contained.
-- `Flexibility` This template is set up to allow your code to be run as an extension in Omniverse.
-
-**Keywords:** extension, template, isaaclab
+This project/repository was generated using the [Isaac Lab Template Generator](https://isaac-sim.github.io/IsaacLab/main/source/overview/own-project/template.html). 
+It for development in an isolated environment, outside of the core Isaac Lab repository.
 
 ## Installation
 
 - Install Isaac Lab by following the [installation guide](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/index.html).
-  We recommend using the conda installation as it simplifies calling Python scripts from the terminal.
+  The conda installation is recommended as it simplifies calling Python scripts from the terminal.
 
 - Clone or copy this project/repository separately from the Isaac Lab installation (i.e. outside the `IsaacLab` directory):
 
-- Using a python interpreter that has Isaac Lab installed, install the library in editable mode using:
+- From the root directory, run the below command to install the project:
 
     ```bash
     # use 'PATH_TO_isaaclab.sh|bat -p' instead of 'python' if Isaac Lab is not installed in Python venv or conda
@@ -37,71 +30,25 @@ It allows you to develop in an isolated environment, outside of the core Isaac L
         python scripts/list_envs.py
         ```
 
-    - Running a task:
+    - Running a training task, explained below:
 
-        ```bash
-        # use 'FULL_PATH_TO_isaaclab.sh|bat -p' instead of 'python' if Isaac Lab is not installed in Python venv or conda
-        python scripts/<RL_LIBRARY>/train.py --task=<TASK_NAME>
-        ```
+## Training
 
-    - Running a task with dummy agents:
-
-        These include dummy agents that output zero or random agents. They are useful to ensure that the environments are configured correctly.
-
-        - Zero-action agent
-
-            ```bash
-            # use 'FULL_PATH_TO_isaaclab.sh|bat -p' instead of 'python' if Isaac Lab is not installed in Python venv or conda
-            python scripts/zero_agent.py --task=<TASK_NAME>
-            ```
-        - Random-action agent
-
-            ```bash
-            # use 'FULL_PATH_TO_isaaclab.sh|bat -p' instead of 'python' if Isaac Lab is not installed in Python venv or conda
-            python scripts/random_agent.py --task=<TASK_NAME>
-            ```
-
-### Set up IDE (Optional)
-
-To setup the IDE, please follow these instructions:
-
-- Run VSCode Tasks, by pressing `Ctrl+Shift+P`, selecting `Tasks: Run Task` and running the `setup_python_env` in the drop down menu.
-  When running this task, you will be prompted to add the absolute path to your Isaac Sim installation.
-
-If everything executes correctly, it should create a file .python.env in the `.vscode` directory.
-The file contains the python paths to all the extensions provided by Isaac Sim and Omniverse.
-This helps in indexing all the python modules for intelligent suggestions while writing code.
-
-### Setup as Omniverse Extension (Optional)
-
-We provide an example UI extension that will load upon enabling your extension defined in `source/acelab/acelab/ui_extension_example.py`.
-
-To enable your extension, follow these steps:
-
-1. **Add the search path of this project/repository** to the extension manager:
-    - Navigate to the extension manager using `Window` -> `Extensions`.
-    - Click on the **Hamburger Icon**, then go to `Settings`.
-    - In the `Extension Search Paths`, enter the absolute path to the `source` directory of this project/repository.
-    - If not already present, in the `Extension Search Paths`, enter the path that leads to Isaac Lab's extension directory directory (`IsaacLab/source`)
-    - Click on the **Hamburger Icon**, then click `Refresh`.
-
-2. **Search and enable your extension**:
-    - Find your extension under the `Third Party` category.
-    - Toggle it to enable your extension.
-
-## Code formatting
-
-We have a pre-commit template to automatically format your code.
-To install pre-commit:
-
+To run a training script for a specific task, we run a python file in the "scripts/skrl" folder and pass in the name of the task as an argument. To train an Iris quadcopter to fly to and hover at some goal point, run the below command from the root directory"
+  
 ```bash
-pip install pre-commit
+python scripts/skrl/train.py --task=Template-Quadcopter-Direct-v0
 ```
 
-Then you can run pre-commit with:
+There are three tasks so far: A quadcopter hover task, a Jackal rover navigation task in a flat grid-world, and a Jackal rover navigation task in terrain with varying heights. Because the Jackals use camera sensors, they have to be trained with a training script that uses a CNN instead of a regular MLP: 
 
 ```bash
-pre-commit run --all-files
+# Jackal navigation in flat grid-world
+python scripts/skrl/trainCNN.py --task=Template-Jackal-Grid-Direct-v0
+```
+```bash
+# Jackal navigation in variable-height terrain
+python scripts/skrl/trainCNN.py --task=Template-Jackal-Terrain-Direct-v0
 ```
 
 ## Troubleshooting
