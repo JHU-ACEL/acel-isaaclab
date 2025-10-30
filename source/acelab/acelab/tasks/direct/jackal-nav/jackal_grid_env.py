@@ -19,9 +19,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 from isaaclab.sensors import TiledCamera, RayCaster, RayCasterCfg, patterns
 import isaaclab.utils.math as math_utils
 
-
 from .jackal_grid_env_cfg import JackalGridEnvCfg
-
 
 GOAL_MARKER_CFG = VisualizationMarkersCfg(
     markers={
@@ -32,7 +30,6 @@ GOAL_MARKER_CFG = VisualizationMarkersCfg(
         ),
     }
 )
-
 
 
 def define_markers() -> VisualizationMarkers:
@@ -54,8 +51,6 @@ def define_markers() -> VisualizationMarkers:
     )
     return VisualizationMarkers(cfg=marker_cfg)
 
-
-#source /home/bchien1/IsaacSim/_build/linux-x86_64/release/setup_conda_env.sh
 
 class JackalGridEnv(DirectRLEnv):
     cfg: JackalGridEnvCfg
@@ -263,16 +258,16 @@ class JackalGridEnv(DirectRLEnv):
         self.robot.write_root_state_to_sim(default_root_state, env_ids)
 
         # Easy Curriculum
-        # half_span = math.pi/9.0
-        # angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-half_span, half_span)
+        half_span = math.pi/9.0
+        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-half_span, half_span)
     
         # Hard Curriculum    
-        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(math.pi/4.0, math.pi/4.0)
+        #angles = torch.empty(len(env_ids), device=self.gpu).uniform_(math.pi/4.0, math.pi/4.0)
 
         # Test Case
         #angles = torch.empty(len(env_ids), device=self.gpu).uniform_(math.pi/6.0, math.pi/6.0)
 
-        self.goal_radii[env_ids] = self.goal_radii[env_ids].uniform_(12.0, 12.0)
+        #self.goal_radii[env_ids] = self.goal_radii[env_ids].uniform_(12.0, 12.0)
 
         targets = default_root_state[:, :3].clone()
         targets[:, 0] = targets[:, 0] + self.goal_radii[env_ids] * torch.cos(angles)

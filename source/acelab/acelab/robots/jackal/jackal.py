@@ -11,7 +11,7 @@ JACKAL_CONFIG = ArticulationCfg(
     # This imports the actual robot usd file
     
     #spawn=sim_utils.UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Robots/Clearpath/Jackal/jackal.usd"),
-    spawn=sim_utils.UsdFileCfg(usd_path="/home/bchien1/ACE_IsaacLabInfrastructure/source/acelab/acelab/robots/jackal/usd/jackal-camera-only.usd"),
+    spawn=sim_utils.UsdFileCfg(usd_path="/home/bchien1/acel-isaaclab/source/acelab/acelab/robots/jackal/usd/jackal-camera-only.usd"),
     init_state=ArticulationCfg.InitialStateCfg(
         pos=(0.0, 0.0, 0.0),
         joint_pos={       

@@ -19,7 +19,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 class JackalGridEnvCfg(DirectRLEnvCfg):
 
     # Change to 20s ~ 30s when training on the Easy curriculum
-    episode_length_s = 50.0
+    episode_length_s = 25.0
 
     # simulation
     decimation = 2
@@ -66,7 +66,7 @@ class JackalGridEnvCfg(DirectRLEnvCfg):
     #observation_space = [tiled_camera.height, tiled_camera.width, 3]
 
     # scene
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=1, env_spacing=75.0, replicate_physics=True) # Change num_envs to 500 when training
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=500, env_spacing=75.0, replicate_physics=True) # Change num_envs to 500 when training
 
     dof_names = ['front_left_wheel_joint', 'front_right_wheel_joint', 'rear_left_wheel_joint', 'rear_right_wheel_joint']
 

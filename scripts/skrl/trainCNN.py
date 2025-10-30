@@ -320,7 +320,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 device=device)
     
     # configure and instantiate the RL trainer
-    cfg_trainer = {"timesteps": 36000, "headless": True}
+    cfg_trainer = {"timesteps": 8000, "headless": True}
     trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
     # start training
