@@ -21,36 +21,11 @@ class MarsTerrainSceneCfg(InteractiveSceneCfg):
     """
     Mars Terrain Scene Configuration
     """
-    # Hidden Terrain (merged terrain of ground and obstacles) for raycaster.
-    # This is done because the raycaster doesn't work with multiple meshes
-    # hidden_terrain = AssetBaseCfg(
-    #     prim_path="/World/terrain/hidden_terrain",
-    #     spawn=sim_utils.UsdFileCfg(
-    #         visible=False,
-    #         usd_path=os.path.join(
-    #             os.path.dirname(os.path.abspath(__file__)),
-    #             "terrain1",
-    #             "terrain_merged.usd",
-    #         ),
-    #     ),
-    #     init_state=AssetBaseCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0)),
-    # )
-
-    # Obstacles
-    # obstacles = AssetBaseCfg(
-    #     prim_path="/World/terrain/obstacles",
-    #     spawn=sim_utils.UsdFileCfg(
-    #         visible=True,
-    #         usd_path= "/home/bchien1/ACE_IsaacLabInfrastructure/source/acelab/acelab/terrain/mars_terrain/rocks_merged.usd",
-    #     ),
-    #     init_state=AssetBaseCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0)),
-    # )
-
     # Ground Terrain
     terrain = TerrainImporterCfg(
         prim_path="/World/terrain",
         terrain_type="usd",
-        usd_path="/home/bchien1/ACE_IsaacLabInfrastructure/source/acelab/acelab/terrain/mars_terrain/terrain_only.usd",
+        usd_path="/home/bchien1/acel-isaaclab/source/acelab/acelab/terrain/terrain_only.usd",
     )
 
 @configclass
@@ -65,11 +40,9 @@ class JackalTerrainEnvCfg(DirectRLEnvCfg):
     # robot(s)
     robot_cfg: ArticulationCfg = JACKAL_CONFIG.replace(prim_path="/World/envs/env_.*/Robot")
 
-    
     # sensors
     tiled_camera: TiledCameraCfg = TiledCameraCfg(
         prim_path="/World/envs/env_.*/Robot/base_link/bumblebee_stereo_camera_frame/bumblebee_stereo_right_frame/bumblebee_stereo_right_camera",
-        #offset=TiledCameraCfg.OffsetCfg(pos=(-5.0, 0.0, 2.0), rot=(1.0, 0.0, 0.0, 0.0), convention="world"),
         data_types=["rgb"],
         spawn=None,
         width=64,

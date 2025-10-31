@@ -19,7 +19,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 class JackalGridEnvCfg(DirectRLEnvCfg):
 
     # Change to 20s ~ 30s when training on the Easy curriculum
-    episode_length_s = 25.0
+    episode_length_s = 100.0
 
     # simulation
     decimation = 2
@@ -39,45 +39,12 @@ class JackalGridEnvCfg(DirectRLEnvCfg):
         height=64,
     )
 
-    # obs_cfg = RigidObjectCfg(prim_path="/World/envs/env_.*/marker", spawn=sim_utils.UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/blue_block.usd", scale = (10.0, 100.0, 100.0)), 
-    #                          init_state = RigidObjectCfg.InitialStateCfg(pos=(1.5,0,0.05)))
-    
-
-    # lidar: RayCasterCfg = RayCasterCfg(
-    #     prim_path="/World/envs/env_.*/Robot/base_link/visuals/mesh_6",
-    #     update_period = 0.1,
-    #     max_distance = 10.0,
-    #     #offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 1.5)),
-    #     pattern_cfg=patterns.GridPatternCfg(
-    #         resolution=1.0,
-    #         size=(1.0, 0.0),
-    #         direction=(1.0, 0.0, 0.0),
-    #     ),
-    #     debug_vis=True,
-    #     ray_alignment = "yaw",
-    #     mesh_prim_paths = ["/World/envs/env_0/marker"],
-    #     #mesh_prim_paths = ["/World/ground"]
-    # )
-    
     # - spaces definition
     state_space = 0
     action_space = 4
     observation_space = [5, tiled_camera.height, tiled_camera.width, 7]
-    #observation_space = [tiled_camera.height, tiled_camera.width, 3]
 
     # scene
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=500, env_spacing=75.0, replicate_physics=True) # Change num_envs to 500 when training
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=500, env_spacing=50.0, replicate_physics=True) # Change num_envs to 500 when training
 
     dof_names = ['front_left_wheel_joint', 'front_right_wheel_joint', 'rear_left_wheel_joint', 'rear_right_wheel_joint']
-
-
-'''
-
-Curriculum-Based Training:
-
-1. Angle of the Goal Marker at (-pi/9, pi/9), radius between 4 and 5 meters, 500 environments, episode length 25 seconds, 8000 timesteps
-2. Angle of the Goal Marker at either pi/8 or -pi/8, radius between 4 and 5 meters, 500 environments, episode length 25 seconds, 4000 timesteps
-3. Angle of the Goal Marker at (-pi/4, pi/4), radius between 8 and 12 meters, 500 environments, spacing of 75.0, episode length 45 seconds, 12000 timesteps
-    (could potentially be 8000)
-
-'''

@@ -104,7 +104,7 @@ algorithm = args_cli.algorithm.lower()
 
 
 
-''' Custom NN Network Defined Here (Pytorch Style) '''
+''' Custom NN Network Definition'''
 import torch
 import torch.nn as nn
 
@@ -262,13 +262,13 @@ def main():
     # instantiate a memory as rollout buffer (any memory can be used for this)
     memory = RandomMemory(memory_size=24, num_envs=env.num_envs, device=device)
 
-
     # instantiate the agent's models (function approximators).
     # PPO requires 2 models, visit its documentation for more details
     # https://skrl.readthedocs.io/en/latest/api/agents/ppo.html#models
     models = {}
     models["policy"] = Shared(env.observation_space, env.action_space, device)
     models["value"] = models["policy"]  # same instance: shared model
+
 
     # configure and instantiate the agent (visit its documentation to see all the options)
     # https://skrl.readthedocs.io/en/latest/api/agents/ppo.html#configuration-and-hyperparameters
@@ -299,7 +299,7 @@ def main():
     # logging to TensorBoard and write checkpoints (in timesteps)
     cfg["experiment"]["write_interval"] = 60
     cfg["experiment"]["checkpoint_interval"] = 600
-    cfg["experiment"]["directory"] = "runs/torch/Isaac-Jackal-v0"
+    cfg["experiment"]["directory"] = "runs/torch/Isaac-Jackal-Nav"
 
     agent = PPO(models=models,
                 memory=memory,
@@ -307,9 +307,9 @@ def main():
                 observation_space=env.observation_space,
                 action_space=env.action_space,
                 device=device)
-    
-    agent.load("/home/bchien1/ACE_IsaacLabInfrastructure/runs/torch/Isaac-Jackal-v0/25-09-02_09-59-58-206167_PPO/checkpoints/best_agent.pt")
 
+
+    agent.load("/home/bchien1/acel-isaaclab/runs/torch/Isaac-Jackal-Nav/25-10-31_17-37-14-618688_PPO/checkpoints/best_agent.pt")
     
     # configure and instantiate the RL trainer
     cfg_trainer = {"timesteps": 100000, "headless": True}

@@ -117,7 +117,8 @@ def sample_min_separation_xy(points_xyz: torch.Tensor, N: int, M: float, seed_id
 
 def trim_boundary_aabb(points_xyz: torch.Tensor, M: float):
     """
-    Remove points within M of the axis-aligned XY boundary.
+    Remove points within M of the axis-aligned XY boundary
+    that encloses the terrain mesh.
     points_xyz: (P, 3) tensor
     """
     xy = points_xyz[:, :2]
@@ -148,9 +149,11 @@ class JackalTerrainEnv(DirectRLEnv):
 
         # clone and replicate
         self.scene.clone_environments(copy_from_source=False)
+
         # add articulation to scene
         self.scene.articulations["robot"] = self.robot
         self.scene.sensors["tiled_camera"] = self.robot_camera 
+
         # add lights
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
@@ -188,11 +191,12 @@ class JackalTerrainEnv(DirectRLEnv):
         self.mesh_vertices = torch.from_numpy(self.mesh_vertices).to(self.gpu)
         self.face_vertices = self.mesh_vertices[faces]
 
+        # Get the valid spawn points on the terrain
         _, self.candidate_spawns = trim_boundary_aabb(self.mesh_vertices, 20.0)
         _, self.valid_spawns = sample_min_separation_xy(self.candidate_spawns, self.cfg.scene.num_envs, 30.0)
         self.valid_spawns[:,2] += 0.05
 
-        # # SETUP FOR PLOTTING VERTICES OF THE MESH (FOR DEBUGGING PURPOSES)
+        # Plot Vertices of Terrain Mesh (Only Needed for Debugging)
         # vertex_cfg = MESH_MARKERS_CFG.copy()
         # vertex_cfg.prim_path = "/Visuals/spawns"
         # self.vertex_markers = VisualizationMarkers(cfg=vertex_cfg)
@@ -244,6 +248,7 @@ class JackalTerrainEnv(DirectRLEnv):
 
         self.scene.update(1.0/120.0)
 
+        ''' Get and Process the Camera Reading '''
         camera_data = self.robot_camera.data.output["rgb"] / 255.0
         # normalize the camera data for better training results
         mean_tensor = torch.mean(camera_data, dim=(1, 2), keepdim=True)
@@ -265,7 +270,7 @@ class JackalTerrainEnv(DirectRLEnv):
 
         N, T, H, W, C = self._camera_hist.shape
 
-        #bodyvel = self.robot.data.root_com_lin_vel_b
+        ''' Get and Process the GPS Reading '''
         goal_vec = self.target_spawns - self.robot.data.root_pos_w
         goal_dist = torch.linalg.norm(goal_vec, dim=-1, keepdim=True)
         unit_goal = self._get_goal_vec_normalized()
@@ -274,9 +279,6 @@ class JackalTerrainEnv(DirectRLEnv):
         self.state_input = state_input[:, None, None, None, :].expand(N, T, H, W, S)
 
         final_obs = torch.cat([self._camera_hist.clone(), self.state_input.clone()], dim=-1) # (N,T,H,W,C+4)
-
-        # if (self.common_step_counter % 100 == 0 and self.common_step_counter != 0):
-        #     import pdb; pdb.set_trace()
 
         return {"policy": final_obs}
     
@@ -331,9 +333,6 @@ class JackalTerrainEnv(DirectRLEnv):
 
         terminated = reached | flipped
 
-        # if reached:
-        #     print("GOAL REACHED: TIMEOUT HERE")
-
         return terminated, time_out
     
 
@@ -384,33 +383,8 @@ class JackalTerrainEnv(DirectRLEnv):
         default_root_state[:, 2] += 0.075
         self.robot.write_root_state_to_sim(default_root_state, env_ids)
 
-        ###
-
-        # N = len(env_ids)
-        # device = self.gpu
-        # dtype = self.robot.data.root_pos_w.dtype  # keep float dtype consistent
-
-        # # [-π/2, -5π/12, ..., 0, ..., +5π/12, +π/2]
-        # choices = torch.arange(-6, 7, device=device) * (math.pi / 12.0)
-        # choices = choices.to(dtype)
-
-        # idx = torch.randint(choices.numel(), (N,), device=device)
-        # angles = choices[idx]              # shape: (N,)
-
-        ###
-
-        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-math.pi/10.0, math.pi/10.0)
-        self.goal_radii[env_ids] = self.goal_radii[env_ids].uniform_(4.0, 5.0)
-
-        # if (self.common_step_counter >= self.max_timesteps/2.0):
-        #     angles = torch.empty(len(env_ids), device=self.gpu).uniform_(math.pi/8.0, math.pi/8.0)
-        #     self.goal_radii[env_ids] = self.goal_radii[env_ids].uniform_(8.0, 8.0)
-
-        # r = self.goal_radii[env_ids]                     
-        # r.uniform_(6.0, 8.0)                             
-        # sign = torch.randint(0, 2, r.shape, device=r.device, dtype=r.dtype) * 2 - 1
-        # r.mul_(sign)      
-        # self.goal_radii[env_ids] = r                               # now in [-8,-6] ∪ [6,8]
+        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-math.pi/8.0, math.pi/8.0)
+        self.goal_radii[env_ids] = self.goal_radii[env_ids].uniform_(5.0, 6.0)
 
         targets = default_root_state[:, :3].clone()
         targets[:, 0] = targets[:, 0] + self.goal_radii[env_ids] * torch.cos(angles)

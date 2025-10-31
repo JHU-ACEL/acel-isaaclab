@@ -89,11 +89,9 @@ class JackalGridEnv(DirectRLEnv):
         self.up_dir = torch.tensor([0.0, 0.0, 1.0]).cuda()  
         self.yaws = torch.zeros((self.cfg.scene.num_envs, 1)).cuda()
         self.commands = torch.zeros((self.cfg.scene.num_envs, 3)).cuda()
-
         self.marker_locations = torch.zeros((self.cfg.scene.num_envs, 3)).cuda()
         self.marker_offset = torch.zeros((self.cfg.scene.num_envs, 3), device=self.gpu)
         self.marker_offset[:, 2] = 0.5
-
         self.forward_marker_orientations = torch.zeros((self.cfg.scene.num_envs, 4), device=self.gpu)
         self.command_marker_orientations = torch.zeros((self.cfg.scene.num_envs, 4), device=self.gpu)
         self.up_dir = torch.tensor([0.0, 0.0, 1.0]).cuda()  
@@ -105,7 +103,6 @@ class JackalGridEnv(DirectRLEnv):
         cube_cfg.prim_path = "/Visuals/Command/position_goal"
         self.goal_markers = VisualizationMarkers(cfg=cube_cfg)
         self.goal_markers.set_visibility(True)
-        #self.goal_radius = 5.0
         self.goal_radii = torch.empty(self.scene.num_envs, device=self.gpu, dtype=torch.float32)
 
         # Data structure to store observation history
@@ -167,7 +164,6 @@ class JackalGridEnv(DirectRLEnv):
         # On first call, fill history with the current frame
         if self._camera_hist is None:
             # repeat the first frame history_len times
-
             camera_data = camera_data.unsqueeze(1)
             camera_data = camera_data.repeat(1, self.history_len, 1, 1, 1)
             self._camera_hist = camera_data
@@ -178,12 +174,7 @@ class JackalGridEnv(DirectRLEnv):
             new = camera_data.unsqueeze(1)   # (N,1,H,W,C)
             self._camera_hist = torch.cat([self._camera_hist[:, 1:], new], dim=1)
 
-        
-        # world_pos_reshaped = self.robot.data.root_pos_w[:, None, None, None, :].expand(N, T, H, W, 3)
-        # goal_pos_reshaped = self.target_spawns[:, None, None, None, :].expand(N, T, H, W, 3)
-
         N, T, H, W, C = self._camera_hist.shape
-        #bodyvel = self.robot.data.root_com_lin_vel_b
         goal_vec = self.target_spawns - self.robot.data.root_pos_w
         goal_dist = torch.linalg.norm(goal_vec, dim=-1, keepdim=True)
         unit_goal = self._get_goal_vec_normalized()
@@ -191,17 +182,14 @@ class JackalGridEnv(DirectRLEnv):
         _, S = state_input.shape
         self.state_input = state_input[:, None, None, None, :].expand(N, T, H, W, S)
 
-
         final_obs = torch.cat([self._camera_hist.clone(), self.state_input.clone()], dim=-1) # (N,T,H,W,C+4)
-
-        # if (self.common_step_counter % 100 == 0 and self.common_step_counter != 0):
-        #     import pdb; pdb.set_trace()
 
         return {"policy": final_obs}
 
 
     def _get_rewards(self) -> torch.Tensor:
 
+        # alignment reward
         goal_vec = self._get_goal_vec_normalized() # torch.Size([N, 3]) 
          
         forwards = math_utils.quat_apply(self.robot.data.root_link_quat_w,
@@ -218,8 +206,6 @@ class JackalGridEnv(DirectRLEnv):
         forward_reward = vel * mask # torch.Size([N, 1])
 
         base_reward = forward_reward*torch.exp(alignment) # torch.Size([N, 1])
-
-        #print(f"Alignment: {base_reward}")
 
         # arrival bonus
         dist = torch.linalg.norm(
@@ -257,17 +243,26 @@ class JackalGridEnv(DirectRLEnv):
         default_root_state[:, :3] += self.scene.env_origins[env_ids]
         self.robot.write_root_state_to_sim(default_root_state, env_ids)
 
-        # Easy Curriculum
-        half_span = math.pi/9.0
-        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-half_span, half_span)
+        '''
+        Curriculum-Based Training:
+
+        1. Angle of the Goal Marker at (-pi/9, pi/9), radius between 4 and 5 meters, 500 environments, episode length 25 seconds, 8000 timesteps
+        2. Angle of the Goal Marker at either pi/8 or -pi/8, radius between 4 and 5 meters, 500 environments, episode length 25 seconds, 4000 timesteps
+        3. Angle of the Goal Marker at (-pi/4, pi/4), radius between 8 and 12 meters, 500 environments, spacing of 75.0, episode length 45 seconds, 12000 timesteps
+            (could potentially be 8000)
+        '''
+
+        # Curriculum Step 1
+        # self.goal_radii[env_ids] = self.goal_radii[env_ids].uniform_(4.0, 5.0)
+        # angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-math.pi/9.0, math.pi/9.0)
     
-        # Hard Curriculum    
-        #angles = torch.empty(len(env_ids), device=self.gpu).uniform_(math.pi/4.0, math.pi/4.0)
+        # Curriculum Step 2 
+        # self.goal_radii[env_ids] = self.goal_radii[env_ids].uniform_(4.0, 5.0)
+        # angles = torch.empty(len(env_ids), device=self.gpu).uniform_(-math.pi/8.0, -math.pi/8.0)
 
-        # Test Case
-        #angles = torch.empty(len(env_ids), device=self.gpu).uniform_(math.pi/6.0, math.pi/6.0)
-
-        #self.goal_radii[env_ids] = self.goal_radii[env_ids].uniform_(12.0, 12.0)
+        # Curriculum Step 3
+        self.goal_radii[env_ids] = self.goal_radii[env_ids].uniform_(8.0, 12.0)
+        angles = torch.empty(len(env_ids), device=self.gpu).uniform_(math.pi/4.0, math.pi/4.0)
 
         targets = default_root_state[:, :3].clone()
         targets[:, 0] = targets[:, 0] + self.goal_radii[env_ids] * torch.cos(angles)

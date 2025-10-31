@@ -79,10 +79,10 @@ if version.parse(skrl.__version__) < version.parse(SKRL_VERSION):
     )
     exit()
 
-if args_cli.ml_framework.startswith("torch"):
-    from skrl.utils.runner.torch import Runner
-elif args_cli.ml_framework.startswith("jax"):
-    from skrl.utils.runner.jax import Runner
+# if args_cli.ml_framework.startswith("torch"):
+#     from skrl.utils.runner.torch import Runner
+# elif args_cli.ml_framework.startswith("jax"):
+#     from skrl.utils.runner.jax import Runner
 
 from isaaclab.envs import (
     DirectMARLEnv,
@@ -91,9 +91,9 @@ from isaaclab.envs import (
     ManagerBasedRLEnvCfg,
     multi_agent_to_single_agent,
 )
-from isaaclab.utils.assets import retrieve_file_path
-from isaaclab.utils.dict import print_dict
-from isaaclab.utils.io import dump_pickle, dump_yaml
+# from isaaclab.utils.assets import retrieve_file_path
+# from isaaclab.utils.dict import print_dict
+# from isaaclab.utils.io import dump_pickle, dump_yaml
 
 from isaaclab_rl.skrl import SkrlVecEnvWrapper
 
@@ -107,8 +107,7 @@ algorithm = args_cli.algorithm.lower()
 agent_cfg_entry_point = "skrl_cfg_entry_point" if algorithm in ["ppo"] else f"skrl_{algorithm}_cfg_entry_point"
 
 
-
-''' Custom NN Network Defined Here (Pytorch Style) '''
+''' Custom NN Network Definition'''
 import torch
 import torch.nn as nn
 
@@ -269,9 +268,8 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # wrap around environment for skrl
     env = SkrlVecEnvWrapper(env, ml_framework=args_cli.ml_framework)  # same as: `wrap_env(env, wrapper="auto")`
 
-    device = env.device
-
     # instantiate a memory as rollout buffer (any memory can be used for this)
+    device = env.device
     memory = RandomMemory(memory_size=24, num_envs=env.num_envs, device=device)
 
     # instantiate the agent's models (function approximators).
@@ -310,7 +308,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # logging to TensorBoard and write checkpoints (in timesteps)
     cfg["experiment"]["write_interval"] = 60
     cfg["experiment"]["checkpoint_interval"] = 600
-    cfg["experiment"]["directory"] = "runs/torch/Isaac-Jackal-v0"
+    cfg["experiment"]["directory"] = "runs/torch/Isaac-Jackal-Nav"
 
     agent = PPO(models=models,
                 memory=memory,
@@ -319,8 +317,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 action_space=env.action_space,
                 device=device)
     
+    agent.load("/home/bchien1/acel-isaaclab/trained_models/jackal-grid/best_agent.pt")
+    
     # configure and instantiate the RL trainer
     cfg_trainer = {"timesteps": 8000, "headless": True}
+    #cfg_trainer = {"timesteps": 32000, "headless": True} # Variable-terrain environment requires more timesteps due to less robots being trained in parallel.
     trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
     # start training
