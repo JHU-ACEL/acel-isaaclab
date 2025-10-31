@@ -10,9 +10,9 @@ In this repository, there are 3 trainable tasks: A quadcopter hover task, a Jack
 
 ### Jackal Rover Navigation in a Flat Grid-World
 - [Jackal Grid World Environment Source Code](source/acelab/acelab/tasks/direct/jackal-nav/jackal_grid_env.py)
-- [Jackal Grid world Environment Configuration Source Code](source/acelab/acelab/tasks/direct/jackal-nav/jackal_grid_env_cfg.py)
+- [Jackal Grid World Environment Configuration Source Code](source/acelab/acelab/tasks/direct/jackal-nav/jackal_grid_env_cfg.py)
 
-### Jackal Rover Navigation in Variable-Height Terrain
+### Jackal Rover Navigation in Variable-Height Terrain (Under Development)
 - [Jackal Terrain Environment Source Code](source/acelab/acelab/tasks/direct/jackal-nav/jackal_terrain_env.py)
 - [Jackal Terrain Environment Configuration Source Code](source/acelab/acelab/tasks/direct/jackal-nav/jackal_terrain_env_cfg.py)
 
