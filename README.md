@@ -3,21 +3,21 @@
 ## Overview
 
 This project/repository was generated using the [Isaac Lab Template Generator](https://isaac-sim.github.io/IsaacLab/main/source/overview/own-project/template.html). 
-It for development in an isolated environment, outside of the core Isaac Lab repository.
+Using the template generator allows for development in an isolated environment, outside of the core Isaac Lab repository.
 
 ## Environments
-There are three tasks so far: A quadcopter hover task, a Jackal rover navigation task in a flat grid-world, and a Jackal rover navigation task in terrain with varying heights. 
+In this repository, there are 3 trainable tasks: A quadcopter hover task, a Jackal rover navigation task in a flat grid-world, and a Jackal rover navigation task in terrain with varying heights. 
 
 ### Jackal Rover Navigation in a Flat Grid-World
-- [Jackal Grid World Environment](source/acelab/acelab/tasks/direct/jackal-nav/jackal_grid_env.py)
-- [Jackal Grid world Environment Configuration](source/acelab/acelab/tasks/direct/jackal-nav/jackal_grid_env_cfg.py)
+- [Jackal Grid World Environment Source Code](source/acelab/acelab/tasks/direct/jackal-nav/jackal_grid_env.py)
+- [Jackal Grid World Environment Configuration Source Code](source/acelab/acelab/tasks/direct/jackal-nav/jackal_grid_env_cfg.py)
 
-### Jackal Rover Navigation in Variable-Height Terrain
-- [Jackal Terrain Environment](source/acelab/acelab/tasks/direct/jackal-nav/jackal_terrain_env.py)
-- [Jackal Terrain Environment Configuration](source/acelab/acelab/tasks/direct/jackal-nav/jackal_terrain_env_cfg.py)
+### Jackal Rover Navigation in Variable-Height Terrain (Under Development)
+- [Jackal Terrain Environment Source Code](source/acelab/acelab/tasks/direct/jackal-nav/jackal_terrain_env.py)
+- [Jackal Terrain Environment Configuration Source Code](source/acelab/acelab/tasks/direct/jackal-nav/jackal_terrain_env_cfg.py)
 
 ### Iris Quadcopter Fly-To-And-Hover
-- [Quadcopter Environment](source/acelab/acelab/tasks/direct/drone-nav/quadcopter_env.py)
+- [Quadcopter Environment Source Code](source/acelab/acelab/tasks/direct/drone-nav/quadcopter_env.py)
 - The environment configuration definition is included in the environment file. 
 
 Each environment.py file includes reward function definitions, functions for defining how the agent observes data from sensors, code for setting up the simulation scene, and more. Isaac Lab has two types of environments: Manager-based and Direct, and these environments are all Direct. Resources on Isaac Lab Direct environments can be found [here](https://isaac-sim.github.io/IsaacLab/main/source/setup/walkthrough/technical_env_design.html) and [here](https://isaac-sim.github.io/IsaacLab/main/source/tutorials/03_envs/create_direct_rl_env.html). 
