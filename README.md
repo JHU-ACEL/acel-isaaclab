@@ -51,7 +51,7 @@ Each environment.py file includes reward function definitions, functions for def
  
 ## Other External Downloads
 
-- REQUIRED FOR JACKAL TERRAIN ENV: Download [terrain assets](https://drive.google.com/file/d/1G_exO_9yu8wWfjak10S1py5praWNSz_a/view) here, and unzip. Create a directory named "terrain" at the filepath "source/acelab/acelab". Paste the contents of the zipped file into this "terrain" directory. The terrain asset is from [RLRoverLab](https://github.com/abmoRobotics/RLRoverLab).
+- REQUIRED FOR JACKAL TERRAIN ENV: Download [terrain assets](https://drive.google.com/file/d/16lNJSQZqxh0eJDLeqVaRaFAi0tgYlJKF/view?usp=sharing) here, and unzip. Create a directory named "terrain" at the filepath "source/acelab/acelab". Paste the contents of the zipped file into this "terrain" directory. The terrain asset is from [RLRoverLab](https://github.com/abmoRobotics/RLRoverLab).
   
 - REQUIRED FOR QUADCOPTER ENV: Download the Iris USD file from [here](https://github.com/btx0424/OmniDrones/blob/main/omni_drones/robots/assets/usd/iris.usd). Then put the usd file in the directory "source/acelab/acelab/robots/quadcopters/iris", next to the iris.yaml file. This quadcopter asset is from [OmniDrones](https://github.com/btx0424/OmniDrones).
 
