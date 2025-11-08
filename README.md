@@ -17,7 +17,7 @@ In this repository, there are 3 trainable tasks: A quadcopter hover task, a Jack
 - [Jackal Terrain Environment Configuration Source Code](source/acelab/acelab/tasks/direct/jackal-nav/jackal_terrain_env_cfg.py)
 
 ### Iris Quadcopter Fly-To-And-Hover
-- [Quadcopter Environment Source Code](source/acelab/acelab/tasks/direct/drone-nav/quadcopter_env.py)
+- [Quadcopter Environment Source Code](source/acelab/acelab/tasks/direct/drone-nav/quadcopter_env.py): Much of this is adapted from the [official Crazyflie example](https://github.com/isaac-sim/IsaacLab/blob/main/source/isaaclab_tasks/isaaclab_tasks/direct/quadcopter/quadcopter_env.py). What must be changed (depending on the drone being trained) is the thrust-to-weight ratio and the moment scale. Using drone dynamics, the maximum thrust and maximum moment that can be applied to the drone must be calculated to set these parameters. 
 - The environment configuration definition is included in the environment file. 
 
 Each environment.py file includes reward function definitions, functions for defining how the agent observes data from sensors, code for setting up the simulation scene, and more. Isaac Lab has two types of environments: Manager-based and Direct, and these environments are all Direct. Resources on Isaac Lab Direct environments can be found [here](https://isaac-sim.github.io/IsaacLab/main/source/setup/walkthrough/technical_env_design.html) and [here](https://isaac-sim.github.io/IsaacLab/main/source/tutorials/03_envs/create_direct_rl_env.html). 
